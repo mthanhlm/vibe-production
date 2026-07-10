@@ -1,5 +1,5 @@
 ---
-name: setup
+name: vibe-setup
 description: Onboard a project onto the vibe loop — discover house patterns, diff them against production standards into a prioritized uplift ROADMAP, write the verify script, initialize .vibe/ state, and optionally default the project to plan mode.
 disable-model-invocation: true
 ---

@@ -94,7 +94,8 @@ version up after `/reload-plugins`.
 | Component | Type | Idle token cost |
 |---|---|---|
 | `production-standards` + 5 reference files | skill (model-invocable) | ~1 description line |
-| `plan` / `check` / `act` / `setup` / `release` | skills, `disable-model-invocation` | 0 |
+| `/vibe:plan` `/vibe:check` `/vibe:act` `/vibe:setup` `/vibe:release` | thin commands (namespaced in the picker) | 0 |
+| `vibe-plan` … `vibe-release` | skills holding the full workflows, `disable-model-invocation` | 0 |
 | plan gate, git safeguard, deviation nudge, plan stamp | hooks (PreToolUse / PostToolUse) | 0 |
 | `standards-reviewer` (sonnet), `uplift-scout` (haiku) | agents, read-only | 0 until invoked |
 | `vibe-verify`, `vibe-plan-html` | bin CLIs | 0 |
