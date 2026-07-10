@@ -19,4 +19,10 @@ Per CC-BY-SA-4.0 share-alike, `security.md` and `error-handling.md` are
 themselves distributed under CC-BY-SA-4.0. `testing.md` is original work
 that cites (but does not reproduce) Martin Fowler's "The Practical Test
 Pyramid" and Anthropic's Claude Code best-practices documentation.
+
+`skills/slide/references/slide-design.md` and
+`skills/drawio/references/drawio-diagrams.md` are original distillations
+from a 2026-07-10 research pass; each rule cites its sources inline
+(consulting/deck-design literature, c4model.com, drawio.com docs, WCAG,
+and others — none reproduced verbatim).
 All other plugin code and content: MIT.

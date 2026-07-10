@@ -1,7 +1,6 @@
 ---
-name: vibe-act
-description: Close the loop after a checked change — promote accepted patterns to committed working agreements, record one learning, tick the uplift roadmap, archive the plan, and prepare the commit.
-disable-model-invocation: true
+name: act
+description: Vibe Act phase — promote working agreements, record one learning, tick the roadmap, archive the plan, prepare the commit. Invoked by the /vibe:act command.
 user-invocable: false
 ---
 

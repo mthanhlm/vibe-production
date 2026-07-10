@@ -3,5 +3,7 @@ description: Verify the current work against the plan — project checks (failur
 disable-model-invocation: true
 ---
 
-Read `${CLAUDE_PLUGIN_ROOT}/skills/vibe-check/SKILL.md` now and execute it
-exactly as written.
+Invoke the Skill tool now with skill `vibe:check`.
+
+The tool loads and runs the skill natively — do not read or paraphrase the
+skill file yourself.

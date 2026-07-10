@@ -4,5 +4,7 @@ argument-hint: "[quick] [what to build]"
 disable-model-invocation: true
 ---
 
-Read `${CLAUDE_PLUGIN_ROOT}/skills/vibe-plan/SKILL.md` now and execute it
-exactly as written. Where it says `$ARGUMENTS`, substitute: $ARGUMENTS
+Invoke the Skill tool now with skill `vibe:plan` and args: $ARGUMENTS
+
+The tool loads and runs the skill natively — do not read or paraphrase the
+skill file yourself.

@@ -1,8 +1,10 @@
 ---
-description: Maintainer-only release automation — validate the plugin, bump the semver, commit and push, refresh the locally-installed copy through the marketplace.
+description: Release the vibe plugin (maintainer) — validate, bump semver, commit, push, refresh the marketplace install.
 argument-hint: "[patch|minor|major] [note]"
 disable-model-invocation: true
 ---
 
-Read `${CLAUDE_PLUGIN_ROOT}/skills/vibe-release/SKILL.md` now and execute it
-exactly as written. Where it says `$ARGUMENTS`, substitute: $ARGUMENTS
+Invoke the Skill tool now with skill `vibe:release` and args: $ARGUMENTS
+
+The tool loads and runs the skill natively — do not read or paraphrase the
+skill file yourself.

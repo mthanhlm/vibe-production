@@ -14,9 +14,9 @@ Fixes the three ways AI coding sessions go wrong:
 3. **Token burn and retry thrash** → plan-before-code is enforced by a
    zero-token hook, tests reach the model as failure lines only, every plan
    carries a retry budget that stops thrashing loops, and the plugin itself
-   costs **well under 500 always-on tokens** (one skill description + your
-   working agreements). No MCP server — nothing here ever invalidates the
-   prompt cache.
+   costs **well under 500 always-on tokens** (a handful of one-line skill
+   descriptions + your working agreements). No MCP server — nothing here
+   ever invalidates the prompt cache.
 
 ## The loop (PDCA + upfront expectations)
 
@@ -41,6 +41,8 @@ Fixes the three ways AI coding sessions go wrong:
 `/vibe:setup` onboards a repo: discovers house patterns, writes the gap
 roadmap and `.vibe/verify.sh`, and (with your consent) defaults the project
 to plan mode.
+`/vibe:slide` — new in 0.3.0: executive slide decks (.pptx).
+`/vibe:drawio` — new in 0.3.0: draw.io diagrams.
 
 ## Install
 
@@ -95,8 +97,8 @@ version up after `/reload-plugins`.
 | Component | Type | Idle token cost |
 |---|---|---|
 | `production-standards` + 5 reference files | skill (model-invocable) | ~1 description line |
-| `/vibe:plan` `/vibe:check` `/vibe:act` `/vibe:setup` `/vibe:release` | thin commands (namespaced in the picker) | 0 |
-| `vibe-plan` … `vibe-release` | skills holding the full workflows, `disable-model-invocation` | 0 |
+| `/vibe:plan` `/vibe:check` `/vibe:act` `/vibe:setup` `/vibe:release` `/vibe:slide` `/vibe:drawio` | thin commands — each natively invokes its skill via the Skill tool | 0 |
+| the 7 workflow skills behind those commands (hidden from the picker) | skills (model-invocable) | ~1 short description line each |
 | plan gate, git safeguard, deviation nudge, plan stamp | hooks (PreToolUse / PostToolUse) | 0 |
 | `standards-reviewer` (sonnet), `uplift-scout` (haiku) | agents, read-only | 0 until invoked |
 | `vibe-verify` | bin CLI | 0 |

@@ -1,7 +1,6 @@
 ---
-name: vibe-check
-description: Verify the current work against the plan — run project checks (failures only), have the standards-reviewer verify each "Done means" criterion with evidence, surface up to 3 uplift suggestions. Respects the plan's retry budget.
-disable-model-invocation: true
+name: check
+description: Vibe Check phase — project checks (failures only), criterion-by-criterion review with evidence, retry budget respected. Invoked by the /vibe:check command.
 user-invocable: false
 ---
 

@@ -1,7 +1,7 @@
 ---
-name: vibe-plan
-description: Plan a feature before code — interview the user, explore the codebase, write a 1–3 page human-readable plan with verifiable "Done means" criteria and a retry budget to .vibe/plan.md, get approval, and write a translated plan.<lang>.md when plan_language is set.
-disable-model-invocation: true
+name: plan
+description: Vibe Plan phase — interview, explore, write a verifiable plan to .vibe/plan.md, get approval, translate when plan_language is set. Invoked by the /vibe:plan command.
+argument-hint: "[quick] [what to build]"
 user-invocable: false
 ---
 
