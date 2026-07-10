@@ -1,8 +1,0 @@
-#!/usr/bin/env bash
-# vibe-plan-html — render .vibe/plan.md to .vibe/plan.html with an EN/VI toggle.
-# The .md plan stays English-only; the translation lives only in the HTML.
-#   vibe-plan-html [project_dir]            re-render, reusing embedded VI
-#   vibe-plan-html --vi - <<'EOF' ... EOF   embed a fresh VI translation
-set -u
-SCRIPT_DIR="$(cd "$(dirname "$(readlink -f "$0")")" && pwd)"
-exec python3 "$SCRIPT_DIR/../scripts/render_plan_html.py" "$@"

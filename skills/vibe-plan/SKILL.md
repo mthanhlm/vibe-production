@@ -1,6 +1,6 @@
 ---
 name: vibe-plan
-description: Plan a feature before code — interview the user, explore the codebase, write a 1–3 page human-readable plan with verifiable "Done means" criteria and a retry budget to .vibe/plan.md, get approval, render the bilingual HTML view.
+description: Plan a feature before code — interview the user, explore the codebase, write a 1–3 page human-readable plan with verifiable "Done means" criteria and a retry budget to .vibe/plan.md, get approval, and write a translated plan.<lang>.md when plan_language is set.
 disable-model-invocation: true
 user-invocable: false
 ---
@@ -65,28 +65,21 @@ Arguments: $ARGUMENTS
    Bullets. What this change deliberately does not do.
    ```
 
-6. **Render with translation.** The `.md` plan stays **English-only** — the
-   translation lives only inside the HTML. Translate the full plan (same
-   headings, same order; keep rule IDs, code identifiers, and DM-numbers in
-   English) into Vietnamese — or the `plan_language` from
-   `.vibe/config.json` if set (`"none"` = skip translation) — and pipe the
-   translated markdown to the renderer via stdin:
-
-   ```bash
-   vibe-plan-html --vi - <<'VIBE_VI'
-   # <tiêu đề dịch>
-   ...
-   VIBE_VI
-   ```
-
-   (Falls back to `python3 "${CLAUDE_PLUGIN_ROOT}/scripts/render_plan_html.py" --vi -`.)
-   Tell the user to open `.vibe/plan.html` — it has the EN/VI toggle.
-   Later re-renders without `--vi` keep the embedded translation.
+6. **Translate.** `.vibe/plan.md` stays **English-only** — the single
+   source of truth agents work from. Read `plan_language` from
+   `.vibe/config.json` (default `vi`; `"none"` = skip this step). Translate
+   the full plan into that language — same headings, same order; keep rule
+   IDs, code identifiers, and DM-numbers in English — and write it to
+   `.vibe/plan.<lang>.md` (e.g. `.vibe/plan.vi.md`). Keep the frontmatter
+   identical and put a one-line source-of-truth note, in the target
+   language, right after it (for `vi`:
+   `> Bản dịch — .vibe/plan.md là nguồn chính thức.`).
 7. **Approval gate.** Show the user the Objective and Done-means (chat is
-   fine) and the plan.html path. Ask for approval with AskUserQuestion
+   fine — point them at `.vibe/plan.<lang>.md` if they prefer reading in
+   their language). Ask for approval with AskUserQuestion
    (approve / edit / cancel). Only on approval set `status: approved` in
-   `.vibe/plan.md`, re-run `vibe-plan-html` (no `--vi` — the embedded
-   translation is reused), and update `.vibe/STATE.md`:
+   `.vibe/plan.md`, mirror the change in `.vibe/plan.<lang>.md` if it
+   exists, and update `.vibe/STATE.md`:
 
    ```markdown
    ---

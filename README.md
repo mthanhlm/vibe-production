@@ -23,8 +23,9 @@ Fixes the three ways AI coding sessions go wrong:
 ```
 /vibe:plan   Plan  — interview → explore → 1–3 page plan: plain-language
                      Objective, verifiable "Done means" criteria, retry
-                     budget. Approval required. Bilingual HTML view (EN/VI
-                     toggle) at .vibe/plan.html.
+                     budget. Approval required. Translated copy at
+                     .vibe/plan.<lang>.md (e.g. plan.vi.md) when
+                     plan_language is set.
   (code)     Do    — normal Claude coding. The plan gate blocks writes
                      without an approved plan; deviation nudges fire once
                      per pattern; standards load only when relevant.
@@ -98,7 +99,7 @@ version up after `/reload-plugins`.
 | `vibe-plan` … `vibe-release` | skills holding the full workflows, `disable-model-invocation` | 0 |
 | plan gate, git safeguard, deviation nudge, plan stamp | hooks (PreToolUse / PostToolUse) | 0 |
 | `standards-reviewer` (sonnet), `uplift-scout` (haiku) | agents, read-only | 0 until invoked |
-| `vibe-verify`, `vibe-plan-html` | bin CLIs | 0 |
+| `vibe-verify` | bin CLI | 0 |
 
 State lives in **your repo, committed**: `.vibe/plan.md` (the gate token),
 `.vibe/STATE.md` (any fresh session knows the next command), `.vibe/ROADMAP.md`
@@ -108,11 +109,13 @@ step promotes), `docs/solutions/` (one learning per feature).
 ## Bilingual plans
 
 `.vibe/plan.md` is **English-only** — the single source of truth agents work
-from. `/vibe:plan` additionally renders `.vibe/plan.html`: a styled,
-self-contained page with an **EN/VI toggle button** (default Vietnamese —
-set `plan_language` in `.vibe/config.json`, or `"none"` to skip). The
-translation is embedded only in the HTML and survives re-renders, so ticking
-progress checkboxes never loses it.
+from. When `plan_language` is set in `.vibe/config.json` (`/vibe:setup` asks;
+default `vi`, `"none"` to skip), `/vibe:plan` also writes a translated copy
+to `.vibe/plan.<lang>.md` — e.g. `.vibe/plan.vi.md` — with the same headings
+and frontmatter, rule IDs and code identifiers kept in English, and a
+first-line note naming `plan.md` as the source of truth. `/vibe:check` and
+`/vibe:act` keep the two files in sync (ticked checkboxes, approval status,
+archiving).
 
 ## License
 

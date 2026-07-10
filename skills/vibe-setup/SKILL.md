@@ -17,8 +17,8 @@ project — say so to the user before you do it.
      (ask the user for their preferred plan translation language; `vi`
      unless they say otherwise; `"none"` disables translation)
    - `.vibe/STATE.md` → `status: idle`, `next_action: /vibe:plan`
-   - Append `.vibe/plan.html` to `.gitignore` (generated file); everything
-     else in `.vibe/` is meant to be committed and team-shared.
+   - Everything in `.vibe/` (including the translated `plan.<lang>.md`) is
+     meant to be committed and team-shared — no .gitignore entries needed.
 2. **Discover house patterns.** Use Explore subagent(s) to map: language(s)
    and frameworks, how errors are handled today, how endpoints are shaped,
    test setup and coverage reality, config/secrets handling, migration

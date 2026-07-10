@@ -44,6 +44,6 @@ evidence. Then findings (if any), then uplift suggestions (if any).
 
 - All criteria PASS → update `.vibe/STATE.md`: `status: checked`,
   `next_action: /vibe:act`. Tick the `- [x]` boxes in `.vibe/plan.md` and
-  re-run `vibe-plan-html` so the HTML view shows progress.
+  mirror the ticks in `.vibe/plan.<lang>.md` if it exists.
 - Any FAIL and budget remains → fix and re-run from stage 1.
 - Budget exhausted → stop and report, as above.

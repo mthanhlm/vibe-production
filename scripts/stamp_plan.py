@@ -68,8 +68,8 @@ def main():
                 "VIBE: approved plan stamped to .vibe/plan.md (gate open) and "
                 ".vibe/STATE.md updated. If the plan lacks an 'Objective' and a "
                 "'Done means' checklist, offer the user /vibe:plan to formalize "
-                "it. Consider rendering the bilingual view via "
-                "`vibe-plan-html` if the user reads plans in the browser."
+                "it. If plan_language in .vibe/config.json is set (e.g. vi), "
+                "offer to write the translated .vibe/plan.<lang>.md."
             ),
         }
     }))
