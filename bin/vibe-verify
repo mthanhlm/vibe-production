@@ -1,0 +1,63 @@
+#!/usr/bin/env bash
+# vibe-verify — run the project's tests/linter and show ONLY failures.
+# Deterministic work stays out of the model; a 10,000-line test log becomes
+# a handful of failure lines (or one PASS line). Exit code mirrors the checks.
+#
+# Project override: .vibe/verify.sh (written by /vibe:setup) is used when
+# present. Otherwise the project type is autodetected.
+set -u
+
+PROJECT_DIR="${CLAUDE_PROJECT_DIR:-$PWD}"
+cd "$PROJECT_DIR" || exit 1
+
+LOG="$(mktemp "${TMPDIR:-/tmp}/vibe-verify.XXXXXX")"
+trap 'rm -f "$LOG"' EXIT
+
+run_checks() {
+  if [ -x .vibe/verify.sh ]; then
+    ./.vibe/verify.sh
+    return $?
+  elif [ -f .vibe/verify.sh ]; then
+    bash .vibe/verify.sh
+    return $?
+  fi
+
+  local ran=1 rc=0
+  if [ -f package.json ]; then
+    ran=0
+    if grep -q '"test"' package.json; then npm test --silent || rc=1; fi
+    if grep -q '"lint"' package.json; then npm run lint --silent || rc=1; fi
+    if grep -q '"typecheck"' package.json; then npm run typecheck --silent || rc=1; fi
+  fi
+  if [ -f pyproject.toml ] || [ -f pytest.ini ] || [ -f setup.py ]; then
+    ran=0
+    if command -v pytest >/dev/null 2>&1; then pytest -q || rc=1; fi
+    if command -v ruff >/dev/null 2>&1; then ruff check . || rc=1; fi
+  fi
+  if [ -f Cargo.toml ]; then ran=0; cargo test --quiet || rc=1; fi
+  if [ -f go.mod ]; then ran=0; go test ./... || rc=1; fi
+
+  if [ "$ran" -eq 1 ]; then
+    echo "vibe-verify: no checks found (no .vibe/verify.sh and no recognized project type)." >&2
+    echo "Run /vibe:setup to configure project checks." >&2
+    return 3
+  fi
+  return $rc
+}
+
+run_checks >"$LOG" 2>&1
+RC=$?
+
+TOTAL=$(wc -l <"$LOG")
+if [ "$RC" -eq 0 ]; then
+  echo "VERIFY PASS — all checks green (${TOTAL} lines of output suppressed)."
+elif [ "$RC" -eq 3 ]; then
+  cat "$LOG"
+else
+  echo "VERIFY FAIL — failure lines only (${TOTAL} total lines, trimmed):"
+  grep -E -i '(FAIL|ERROR|error\[|error:|✕|✗|AssertionError|Traceback|panicked|--- FAIL|not ok|✖)' "$LOG" \
+    | grep -v -E -i '^(=+|-+)$' | head -100
+  echo "---"
+  echo "(full log suppressed to save context; re-run a single failing test for detail)"
+fi
+exit $RC

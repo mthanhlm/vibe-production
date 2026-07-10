@@ -1,0 +1,14 @@
+{
+  "name": "vibe-marketplace",
+  "description": "Marketplace for the vibe plugin — production standards, PDCA loop, and gradual tech-debt uplift for vibe coding.",
+  "owner": {
+    "name": "mthanhlm"
+  },
+  "plugins": [
+    {
+      "name": "vibe",
+      "source": "./",
+      "description": "Lightweight production-standards and PDCA-loop layer for vibe coding: plan-before-code gate, citation-grade standards on demand, gradual tech-debt uplift, token-light by construction."
+    }
+  ]
+}
