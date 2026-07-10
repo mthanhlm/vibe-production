@@ -34,16 +34,14 @@ Fixes the three ways AI coding sessions go wrong:
                      offers ≤3 optional improvements. Stops at the retry
                      budget instead of thrashing.
 /vibe:act    Act   — promote working agreements, record one learning, tick
-                     the roadmap, archive the plan (closes the gate), and
-                     prepare the commit message — you commit yourself.
+                     the roadmap, archive the plan (closes the gate).
+                     Git stays fully manual — you commit yourself.
 ```
 
 `/vibe:plan quick` stamps a one-line plan for one-sentence diffs — no ceremony.
 `/vibe:setup` onboards a repo: discovers house patterns, writes the gap
 roadmap and `.vibe/verify.sh`, and (with your consent) defaults the project
 to plan mode.
-`/vibe:slide` — new in 0.3.0: executive slide decks (.pptx).
-`/vibe:drawio` — new in 0.3.0: draw.io diagrams.
 
 ## Install
 
@@ -60,14 +58,8 @@ For local development:
 claude --plugin-dir /path/to/vibe-production
 ```
 
-Requirements: `bash` and `python3` on PATH — the guaranteed path is
-stdlib-only, always: hooks, the deck builder (vector charts, icons,
-images), the package validator, and the diagram linter need nothing
-installed. Optional enhancers are auto-detected and never required:
-PIL (text metrics), LibreOffice `soffice` (deck render/self-review),
-graphviz `dot` (diagram auto-layout), a cached headless Chrome (pixel
-previews). Absence of any of them degrades gracefully — delivery never
-blocks on an optional tool.
+Requirements: `bash` and `python3` on PATH — everything is stdlib-only,
+nothing else needs to be installed.
 The plan gate and nudges are **opt-in per project** — they
 activate only after `.vibe/` exists (created by `/vibe:setup` or
 `/vibe:plan`), so installing the plugin never gates other repos.
@@ -105,8 +97,8 @@ version up after `/reload-plugins`.
 | Component | Type | Idle token cost |
 |---|---|---|
 | `production-standards` + 5 reference files | skill (model-invocable) | ~1 description line |
-| `/vibe:plan` `/vibe:check` `/vibe:act` `/vibe:setup` `/vibe:release` `/vibe:slide` `/vibe:drawio` | thin commands — each natively invokes its skill via the Skill tool | 0 |
-| the 7 workflow skills behind those commands (hidden from the picker) | skills (model-invocable) | ~1 short description line each |
+| `/vibe:plan` `/vibe:check` `/vibe:act` `/vibe:setup` `/vibe:release` | thin commands — each natively invokes its skill via the Skill tool | 0 |
+| the 5 workflow skills behind those commands (hidden from the picker) | skills (model-invocable) | ~1 short description line each |
 | plan gate, git safeguard, deviation nudge, plan stamp | hooks (PreToolUse / PostToolUse) | 0 |
 | `standards-reviewer` (sonnet), `uplift-scout` (haiku) | agents, read-only | 0 until invoked |
 | `vibe-verify` | bin CLI | 0 |

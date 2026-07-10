@@ -1,6 +1,6 @@
 ---
 name: act
-description: Vibe Act phase — promote working agreements, record one learning, tick the roadmap, archive the plan, prepare the commit message (never commits). Invoked by the /vibe:act command.
+description: Vibe Act phase — promote working agreements, record one learning, tick the roadmap, archive the plan (never touches git). Invoked by the /vibe:act command.
 user-invocable: false
 ---
 
@@ -10,9 +10,12 @@ The step that makes the next loop better. Requires `.vibe/STATE.md` status
 `checked` (if not, suggest /vibe:check first). All writes go to
 git-committed files — never to plugin storage, never only to conversation.
 Act runs **fully automatic** — no AskUserQuestion, no mid-run approval
-gates. The one thing it never does is touch git: the user commits manually
-(their commit process has rules that require it), unless they explicitly
-ask for a commit in their own words.
+gates. The one thing it never does is touch git: no staging, no commit,
+and no commit-message file — the user handles all of git manually (their
+commit process has rules that require it). Only if the user separately
+and explicitly asks for git actions in their own words may git commands
+run, prefixed with `VIBE_GIT=allow `. (`/vibe:release` has its own
+maintainer-only automation and is outside this skill.)
 
 ## Steps
 
@@ -36,15 +39,11 @@ ask for a commit in their own words.
 4. **Archive the plan.** Move `.vibe/plan.md` (and `.vibe/plan.<lang>.md`
    if present) to `.vibe/archive/<YYYY-MM-DD>-<slug>.*`. This CLOSES the
    plan gate — the next feature starts with /vibe:plan again.
-5. **Update state.** `.vibe/STATE.md`: `status: done`,
-   `next_action: /vibe:plan`, one line naming what shipped.
-6. **Prepare the commit message — NEVER run git.** Write a single-feature
-   commit message to `.vibe/commit-message.txt` and show it in chat with
-   the list of files that belong in the commit (rules, learning, and the
-   feature changes). Do NOT run `git add`, `git commit`, or `git push`
-   from this skill under any circumstances — the user commits manually.
-   Only when the user separately and explicitly asks for a commit in
-   their own words may git commands run, prefixed with `VIBE_GIT=allow `
-   (the guard blocks unapproved add/commit/push either way).
+5. **Update state — then STOP.** `.vibe/STATE.md`: `status: done`,
+   `next_action: /vibe:plan`, one line naming what shipped. In the final
+   summary, list the files that belong in the feature's commit (rules,
+   learning, and the feature changes) — nothing more. No commit message
+   is written and no git command runs; committing is entirely the user's,
+   done manually.
 
 Keep the whole Act pass short — it's bookkeeping, not a second review.
