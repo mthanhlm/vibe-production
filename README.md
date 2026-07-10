@@ -34,7 +34,8 @@ Fixes the three ways AI coding sessions go wrong:
                      offers ≤3 optional improvements. Stops at the retry
                      budget instead of thrashing.
 /vibe:act    Act   — promote working agreements, record one learning, tick
-                     the roadmap, archive the plan (closes the gate), commit.
+                     the roadmap, archive the plan (closes the gate), and
+                     prepare the commit message — you commit yourself.
 ```
 
 `/vibe:plan quick` stamps a one-line plan for one-sentence diffs — no ceremony.
@@ -59,8 +60,15 @@ For local development:
 claude --plugin-dir /path/to/vibe-production
 ```
 
-Requirements: `bash` and `python3` on PATH (hooks and renderers are
-stdlib-only). The plan gate and nudges are **opt-in per project** — they
+Requirements: `bash` and `python3` on PATH — the guaranteed path is
+stdlib-only, always: hooks, the deck builder (vector charts, icons,
+images), the package validator, and the diagram linter need nothing
+installed. Optional enhancers are auto-detected and never required:
+PIL (text metrics), LibreOffice `soffice` (deck render/self-review),
+graphviz `dot` (diagram auto-layout), a cached headless Chrome (pixel
+previews). Absence of any of them degrades gracefully — delivery never
+blocks on an optional tool.
+The plan gate and nudges are **opt-in per project** — they
 activate only after `.vibe/` exists (created by `/vibe:setup` or
 `/vibe:plan`), so installing the plugin never gates other repos.
 Emergency bypass: `VIBE_GATE=off` or `"gate": "off"` in `.vibe/config.json`.

@@ -6,10 +6,10 @@ Stdlib only. The design lives entirely in skills/slide/assets/template.pptx
 quality is the template's quality every time.
 
 Usage:
-  build_pptx.py SPEC.json OUT.pptx
+  build_pptx.py SPEC.json OUT.pptx [--force]
   build_pptx.py --selftest [OUT.pptx]
 
-Spec shape:
+Legacy spec (v1) shape:
   {
     "title": "Deck title (action sentence)",
     "subtitle": "Why this matters to the business now",
@@ -22,15 +22,35 @@ Spec shape:
     ]
   }
 
-Exit codes: 0 ok, 1 bad input/spec, 2 selftest failure.
+Spec v2 (detected via "version": 2 or any slide carrying "beat"/"layout"):
+  {
+    "version": 2, "title": ..., "subtitle": ..., "meta": ...,
+    "mode": "board_preread|keynote",   # default board_preread
+    "theme": "light|dark",             # default light (dark when keynote)
+    "slides": [
+      {"beat": "hook|problem|insight|solution|how_it_works|proof|risks|
+                roadmap|ask|status|transition|context|agenda",
+       "layout": "<optional: defaults to the beat's primary layout>",
+       ... layout text fields (see skills/slide/references/layout-catalog.md)}
+    ]
+  }
+Restraint budgets (SL-19) fail the build; --force downgrades them to
+warnings. Structural spec errors are never forceable.
+
+Exit codes: 0 ok, 1 bad input/spec/budget, 2 selftest failure,
+3 built but failed package validation (file kept for debugging).
 """
 import copy
 import json
 import os
+import re
 import sys
 import tempfile
 import xml.etree.ElementTree as ET
 import zipfile
+
+import pptx_components  # sibling module in scripts/ — WA-2 emitter list
+import validate_pptx    # sibling module in scripts/
 
 NS_A = "http://schemas.openxmlformats.org/drawingml/2006/main"
 NS_P = "http://schemas.openxmlformats.org/presentationml/2006/main"
@@ -43,6 +63,88 @@ for prefix, uri in (("a", NS_A), ("p", NS_P), ("r", NS_R)):
 PROTOTYPES = {"title": 1, "exec_summary": 2, "section": 3, "content": 4, "closing": 5}
 DEFAULT_KICKERS = {"exec_summary": "EXECUTIVE SUMMARY", "closing": "THE ASK"}
 SLIDE_BUDGET = 12  # SL-6
+
+# --- spec v2: beat-driven archetype layouts -------------------------------
+# Mirrors SLIDE_ORDER in skills/slide/assets/make_template.py exactly.
+V2_ORDER = ["title", "exec_summary", "section", "content", "closing",
+            "hero_statement", "section_divider", "exec_summary_3col",
+            "big_number", "before_after", "quote_evidence",
+            "kpi_strip", "chart_takeaway", "three_cards",
+            "process_flow", "timeline_roadmap", "matrix_2x2"]
+PROTOTYPES_V2 = {name: i + 1 for i, name in enumerate(V2_ORDER)}
+
+# Where each layout's emitted exhibit lands, in EMU (x, y, w, h).
+ZONES = {
+    "kpi_strip": (830000, 2400000, 10532000, 3400000),
+    "chart_takeaway": (830000, 2500000, 6800000, 3300000),
+    "process_flow": (830000, 2500000, 10532000, 3300000),
+    "timeline_roadmap": (830000, 2450000, 10532000, 3400000),
+    "matrix_2x2": (1830000, 2400000, 8500000, 3200000),  # template plot rect
+}
+QUANTITATIVE = {"bars", "column", "waterfall", "line", "ring", "harvey"}
+PNG_MAGIC = b"\x89PNG\r\n\x1a\n"
+IMAGE_REL = ("http://schemas.openxmlformats.org/officeDocument/2006/"
+             "relationships/image")
+
+# The story beat picks the layout (SL-17); authors may only choose among the
+# beat's primary + fallbacks. Layouts not yet in V2_ORDER are rejected by the
+# lint until their template prototype ships.
+BEAT_LAYOUT = {
+    "hook":         ("big_number", "hero_statement"),
+    "problem":      ("chart_takeaway", "before_after", "big_number"),
+    "insight":      ("big_number", "matrix_2x2", "chart_takeaway"),
+    "solution":     ("three_cards", "before_after"),
+    "how_it_works": ("process_flow", "before_after", "content"),
+    "proof":        ("chart_takeaway", "quote_evidence", "kpi_strip"),
+    "risks":        ("chart_takeaway", "content", "kpi_strip"),
+    "roadmap":      ("timeline_roadmap",),
+    "ask":          ("exec_summary_3col", "big_number", "hero_statement"),
+    "status":       ("kpi_strip", "chart_takeaway"),
+    "transition":   ("section_divider",),
+    "context":      ("content", "before_after"),
+    "agenda":       ("content",),
+}
+
+# One exhibit per slide is enforced by construction: each element-bearing
+# layout has exactly one typed exhibit field instead of a generic list.
+EXHIBIT_FIELDS = {"kpi_strip": "tiles", "chart_takeaway": "exhibit",
+                  "three_cards": "cards", "process_flow": "steps",
+                  "timeline_roadmap": "timeline", "matrix_2x2": "matrix"}
+
+# Body-word budgets per layout (SL-19) — the budgets ARE the aesthetic.
+WORD_BUDGETS = {
+    "board_preread": {"hero_statement": 24, "section_divider": 7,
+                      "big_number": 20, "exec_summary_3col": 90,
+                      "before_after": 48, "quote_evidence": 40, "content": 60,
+                      "kpi_strip": 40, "chart_takeaway": 45, "three_cards": 36,
+                      "process_flow": 40, "timeline_roadmap": 50,
+                      "matrix_2x2": 30},
+    "keynote":       {"hero_statement": 12, "section_divider": 7,
+                      "big_number": 15, "exec_summary_3col": 60,
+                      "before_after": 30, "quote_evidence": 30, "content": 30,
+                      "kpi_strip": 30, "chart_takeaway": 30, "three_cards": 24,
+                      "process_flow": 28, "timeline_roadmap": 35,
+                      "matrix_2x2": 20},
+}
+TITLE_MAX_WORDS = 15  # SL-7
+# Title layouts where the 15-word action-title rule applies.
+TITLED_LAYOUTS = {"exec_summary_3col", "before_after", "content", "kpi_strip",
+                  "chart_takeaway", "three_cards", "process_flow",
+                  "timeline_roadmap", "matrix_2x2"}
+
+# Dark theme = simultaneous hex remap on cloned prototype XML. Slides that
+# are already dark navy fields keep their look (exempt).
+DARK_MAP = {
+    "163A5F": "FFFFFF",  # navy titles/headers -> white
+    "20242C": "E8EAED",  # body ink
+    "6B7280": "9AA3AE",  # secondary text
+    "E3E7EE": "3A3F47",  # hairline rules
+    "F2F4F7": "262B31",  # de-emphasized panel
+    "F6F0DC": "2E2A1C",  # accent-tinted panel
+    "FFFFFF": "262E36",  # white card fills -> dark cards
+}
+DARK_EXEMPT = {"title", "section", "hero_statement", "section_divider"}
+DARK_CANVAS = "1E1E1E"
 
 REL = "http://schemas.openxmlformats.org/officeDocument/2006/relationships"
 SLIDE_RELS = ('<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n'
@@ -138,6 +240,7 @@ def content_types(n):
         '<Override PartName="/ppt/slideLayouts/slideLayout1.xml" ContentType="application/vnd.openxmlformats-officedocument.presentationml.slideLayout+xml"/>',
         '<Override PartName="/ppt/theme/theme1.xml" ContentType="application/vnd.openxmlformats-officedocument.theme+xml"/>',
         '<Override PartName="/docProps/core.xml" ContentType="application/vnd.openxmlformats-package.core-properties+xml"/>',
+        '<Override PartName="/docProps/app.xml" ContentType="application/vnd.openxmlformats-officedocument.extended-properties+xml"/>',
     ]
     for i in range(n):
         overrides.append(f'<Override PartName="/ppt/slides/slide{i + 1}.xml" ContentType="application/vnd.openxmlformats-officedocument.presentationml.slide+xml"/>')
@@ -162,6 +265,556 @@ def render_slide(proto_xml, spec_slide, deck_title, page_no):
         set_text(root, "body", normalize_bullets(spec_slide.get("bullets")))
         set_text(root, "footer", [(f"{deck_title} · {page_no}", 0)])
     return ET.tostring(root, encoding="UTF-8", xml_declaration=True)
+
+
+# --- spec v2 ---------------------------------------------------------------
+
+def _words(*texts):
+    return sum(len(str(t).split()) for t in texts if t)
+
+
+def _title_findings(where, title):
+    out = []
+    if not str(title).strip():
+        out.append(f"{where}: action title required (SL-7)")
+        return out
+    if _words(title) > TITLE_MAX_WORDS:
+        out.append(f"{where}: title has {_words(title)} words, max "
+                   f"{TITLE_MAX_WORDS} (SL-7/SL-19)")
+    lowered = f" {str(title).lower()} "
+    if " and " in lowered or " và " in lowered:
+        out.append(f'{where}: title joins two messages with "and" — '
+                   "split the slide (SL-7)")
+    return out
+
+
+def _slide_body_words(s, layout):
+    cols = s.get("columns") or []
+    sides = [s.get("left") or {}, s.get("right") or {}]
+    return _words(
+        s.get("statement"), s.get("support"), s.get("context"),
+        s.get("quote"), s.get("attribution"), s.get("callout_head"),
+        *(s.get("callout_lines") or []),
+        *(b if isinstance(b, str) else b.get("text", "")
+          for b in s.get("bullets") or []),
+        *(line for c in cols for line in [c.get("head", "")] + list(c.get("lines") or [])),
+        *(line for side in sides for line in [side.get("head", "")] + list(side.get("lines") or [])),
+        *(t.get("label", "") for t in s.get("tiles") or []),
+        *(line for c in s.get("cards") or []
+          for line in (c.get("head", ""), c.get("line", ""))),
+        *(line for st in s.get("steps") or []
+          for line in (st.get("label", ""), st.get("detail", ""))),
+        *(p.get("label", "") for p in (s.get("timeline") or {}).get("phases") or []),
+        *(m.get("label", "") for m in (s.get("timeline") or {}).get("milestones") or []),
+        *(it.get("label", "") for it in (s.get("matrix") or {}).get("items") or []),
+    )
+
+
+def _lint_exhibit(where, ex):
+    """Structural checks per exhibit kind (chart_takeaway)."""
+    errors = []
+    kind = ex["type"]
+    try:
+        if kind in ("bars", "column"):
+            items = ex.get("items") or []
+            if not 2 <= len(items) <= 8:
+                errors.append(f"{where}: {kind} needs 2-8 items, got "
+                              f"{len(items)}")
+            else:
+                for it in items:
+                    float(it["value"]), it["label"]
+        elif kind == "waterfall":
+            deltas = ex.get("deltas") or []
+            if not 1 <= len(deltas) <= 7:
+                errors.append(f"{where}: waterfall needs 1-7 deltas, got "
+                              f"{len(deltas)}")
+            float(ex["start"]["value"])
+            for d in deltas:
+                float(d["value"]), d["label"]
+        elif kind == "line":
+            series = ex.get("series") or []
+            if not 1 <= len(series) <= 4:
+                errors.append(f"{where}: line needs 1-4 series, got "
+                              f"{len(series)} (SL-19)")
+            for s in series:
+                if len(s.get("points") or []) < 2:
+                    errors.append(f"{where}: every series needs >=2 points")
+                    break
+                for _x, v in s["points"]:
+                    float(v)
+        elif kind == "ring":
+            if not 0 <= float(ex["pct"]) <= 100:
+                errors.append(f"{where}: ring pct must be 0-100")
+        elif kind == "harvey":
+            items = ex.get("items") or []
+            if not 1 <= len(items) <= 6:
+                errors.append(f"{where}: harvey needs 1-6 items, got "
+                              f"{len(items)}")
+            for it in items:
+                float(it["pct"]), it["label"]
+        elif kind == "image":
+            if not os.path.isfile(ex.get("path", "")):
+                errors.append(f"{where}: image path {ex.get('path')!r} not "
+                              'found (use "photo" for an optional picture '
+                              "with a gradient fallback)")
+    except (KeyError, TypeError, ValueError):
+        errors.append(f"{where}: malformed {kind} exhibit — see "
+                      "skills/slide/references/layout-catalog.md")
+    return errors
+
+
+def lint_spec(spec):
+    """Validate a v2 spec. Returns (errors, budget_findings): errors are
+    never forceable; budget findings (SL-19) downgrade to warnings under
+    --force."""
+    errors, budgets = [], []
+    mode = spec.get("mode", "board_preread")
+    if mode not in WORD_BUDGETS:
+        errors.append(f'mode must be board_preread or keynote, got {mode!r}')
+        mode = "board_preread"
+    if spec.get("theme", "light") not in ("light", "dark"):
+        errors.append(f'theme must be light or dark, got {spec.get("theme")!r}')
+    for key in ("title", "slides"):
+        if key not in spec:
+            errors.append(f'spec missing required key "{key}"')
+    if errors:
+        return errors, budgets
+
+    for i, s in enumerate(spec["slides"]):
+        beat = s.get("beat")
+        where = f"slide {i + 1}"
+        if beat not in BEAT_LAYOUT:
+            errors.append(f"{where}: unknown beat {beat!r} "
+                          f"(one of {'/'.join(BEAT_LAYOUT)})")
+            continue
+        layout = s.get("layout") or BEAT_LAYOUT[beat][0]
+        where = f"slide {i + 1} ({beat}/{layout})"
+        if layout not in BEAT_LAYOUT[beat]:
+            errors.append(f"{where}: layout {layout!r} not allowed for beat "
+                          f"{beat!r} (allowed: {', '.join(BEAT_LAYOUT[beat])}) (SL-17)")
+            continue
+        if layout not in PROTOTYPES_V2:
+            errors.append(f"{where}: layout {layout!r} has no template "
+                          "prototype yet")
+            continue
+        if "elements" in s:
+            field = EXHIBIT_FIELDS.get(layout)
+            hint = (f'use the typed "{field}" field'
+                    if field else "this is a text layout")
+            errors.append(f'{where}: "elements" is not a spec key — {hint}')
+
+        # structural per-layout requirements
+        if layout == "hero_statement":
+            if not s.get("statement"):
+                errors.append(f'{where}: "statement" required')
+            elif _words(s["statement"]) > 9:
+                budgets.append(f"{where}: statement has "
+                               f"{_words(s['statement'])} words, max 9 (SL-19)")
+        elif layout == "section_divider":
+            if not s.get("title"):
+                errors.append(f'{where}: "title" required')
+            elif _words(s["title"]) > 7:
+                budgets.append(f"{where}: divider title has "
+                               f"{_words(s['title'])} words, max 7 (SL-19)")
+        elif layout == "exec_summary_3col":
+            cols = s.get("columns") or []
+            if len(cols) != 3:
+                errors.append(f"{where}: exactly 3 columns required, "
+                              f"got {len(cols)}")
+            for c in cols:
+                if len(c.get("lines") or []) > 5:
+                    budgets.append(f"{where}: column "
+                                   f"\"{c.get('head', '?')}\" has "
+                                   f"{len(c['lines'])} lines, max 5 (SL-19)")
+        elif layout == "big_number":
+            if not s.get("value"):
+                errors.append(f'{where}: "value" (the metric) required')
+        elif layout == "before_after":
+            for side in ("left", "right"):
+                panel = s.get(side)
+                if not isinstance(panel, dict):
+                    errors.append(f'{where}: "{side}" panel required')
+                elif len(panel.get("lines") or []) > 4:
+                    budgets.append(f"{where}: {side} panel has "
+                                   f"{len(panel['lines'])} lines, max 4 (SL-19)")
+        elif layout == "quote_evidence":
+            quote = s.get("quote", "")
+            if not quote:
+                errors.append(f'{where}: "quote" required')
+            elif len(quote) > 150:
+                budgets.append(f"{where}: quote is {len(quote)} chars, "
+                               "max 150 (SL-19)")
+        elif layout == "content":
+            if len(s.get("bullets") or []) > 5:
+                budgets.append(f"{where}: {len(s['bullets'])} bullets, max 5 "
+                               "— bullets are for agendas only (SL-17/SL-19)")
+        elif layout == "kpi_strip":
+            tiles = s.get("tiles") or []
+            if not 2 <= len(tiles) <= 6:
+                errors.append(f'{where}: "tiles" needs 2-6 entries, '
+                              f"got {len(tiles)} (SL-19)")
+            for t in tiles:
+                if not t.get("label") or t.get("value") in (None, ""):
+                    errors.append(f"{where}: every tile needs label + value")
+                    break
+        elif layout == "chart_takeaway":
+            ex = s.get("exhibit")
+            if not isinstance(ex, dict) or "type" not in ex:
+                errors.append(f'{where}: "exhibit" object with a "type" '
+                              "required")
+            elif ex["type"] not in pptx_components.EXHIBIT_TYPES:
+                errors.append(f"{where}: exhibit type {ex['type']!r} not "
+                              "available (have: "
+                              f"{', '.join(sorted(pptx_components.EXHIBIT_TYPES))})")
+            else:
+                errors.extend(_lint_exhibit(where, ex))
+                if ex["type"] in QUANTITATIVE and not s.get("source"):
+                    budgets.append(f'{where}: quantitative exhibit without a '
+                                   '"source" line (SL-20)')
+            if len(s.get("callout_lines") or []) > 5:
+                budgets.append(f"{where}: callout has "
+                               f"{len(s['callout_lines'])} lines, max 5 (SL-19)")
+        elif layout == "process_flow":
+            steps = s.get("steps") or []
+            if not 2 <= len(steps) <= 5:
+                errors.append(f'{where}: "steps" needs 2-5 entries, got '
+                              f"{len(steps)} — group extra steps into "
+                              "phases (SL-19)")
+            if any(not st.get("label") for st in steps):
+                errors.append(f"{where}: every step needs a label")
+        elif layout == "timeline_roadmap":
+            tl = s.get("timeline") or {}
+            phases = tl.get("phases") or []
+            milestones = tl.get("milestones") or []
+            if not phases and not milestones:
+                errors.append(f'{where}: "timeline" needs phases and/or '
+                              "milestones")
+            try:
+                for p in phases:
+                    if not (p.get("label") and float(p["start"]) < float(p["end"])):
+                        errors.append(f"{where}: phase needs label and "
+                                      "start < end")
+                        break
+                for m in milestones:
+                    float(m["at"])
+                    if not m.get("label"):
+                        errors.append(f"{where}: every milestone needs a label")
+                        break
+                if tl.get("today") is not None:
+                    float(tl["today"])
+            except (KeyError, TypeError, ValueError):
+                errors.append(f"{where}: timeline start/end/at/today must be "
+                              "numbers on one scale")
+        elif layout == "matrix_2x2":
+            mx = s.get("matrix") or {}
+            items = mx.get("items") or []
+            if not mx.get("x_label") or not mx.get("y_label"):
+                errors.append(f"{where}: matrix needs x_label and y_label")
+            if not 1 <= len(items) <= 6:
+                errors.append(f"{where}: matrix needs 1-6 items, got "
+                              f"{len(items)} (SL-19)")
+            for it in items:
+                try:
+                    ok = (it.get("label")
+                          and 0 <= float(it["x"]) <= 1
+                          and 0 <= float(it["y"]) <= 1)
+                except (KeyError, TypeError, ValueError):
+                    ok = False
+                if not ok:
+                    errors.append(f"{where}: each matrix item needs label "
+                                  "and x/y in 0..1")
+                    break
+        elif layout == "three_cards":
+            cards = s.get("cards") or []
+            if len(cards) != 3:
+                errors.append(f'{where}: exactly 3 cards required, '
+                              f"got {len(cards)} (SL-19)")
+            for c in cards:
+                if not c.get("head"):
+                    errors.append(f"{where}: every card needs a head")
+                    break
+                if c.get("icon") and not pptx_components.icon_exists(c["icon"]):
+                    errors.append(f"{where}: unknown icon {c['icon']!r} "
+                                  "(see skills/slide/assets/icons.json)")
+
+        if layout in TITLED_LAYOUTS:
+            budgets.extend(_title_findings(where, s.get("title", "")))
+
+        cap = WORD_BUDGETS[mode].get(layout)
+        body_words = _slide_body_words(s, layout)
+        if cap and body_words > cap:
+            budgets.append(f"{where}: {body_words} body words exceeds the "
+                           f"{mode} budget of {cap} (SL-19)")
+    budgets.extend(_title_findings("deck title", spec.get("title", "")))
+    return errors, budgets
+
+
+def recolor_dark(xml_bytes):
+    """Simultaneous hex remap (never sequential — targets overlap sources)."""
+    return re.sub(
+        rb'val="([0-9A-F]{6})"',
+        lambda m: b'val="' + DARK_MAP.get(
+            m.group(1).decode(), m.group(1).decode()).encode() + b'"',
+        xml_bytes)
+
+
+def _set(root, name, value, multiline=False):
+    if value is None:
+        return
+    set_text(root, name, paragraphs(value) if multiline else [(str(value), 0)])
+
+
+def _set_lines(root, name, lines):
+    set_text(root, name, [(str(line), 0) for line in lines or []])
+
+
+def _append_fragments(root, frag_xml):
+    """Parse emitter output (a/p/r-prefixed fragments) into the spTree."""
+    if not frag_xml:
+        return
+    wrapper = ET.fromstring(
+        f'<w xmlns:a="{NS_A}" xmlns:p="{NS_P}" xmlns:r="{NS_R}">{frag_xml}</w>')
+    sptree = root.find(f"{{{NS_P}}}cSld/{{{NS_P}}}spTree")
+    for child in list(wrapper):
+        sptree.append(child)
+
+
+def _prep_image_block(ex, media_alloc):
+    """Read image bytes for an image/photo exhibit; photos degrade to the
+    gradient field on any problem, images fail the build (lint precedes)."""
+    block = dict(ex)
+    path = ex.get("path")
+    data = None
+    if path:
+        try:
+            with open(path, "rb") as fh:
+                data = fh.read()
+        except OSError as exc:
+            if ex["type"] == "image":
+                die(f"cannot read image {path!r}: {exc}")
+            print(f"build_pptx: warning: photo {path!r} unreadable "
+                  f"({exc}) — using the gradient fallback (SL-23)",
+                  file=sys.stderr)
+    if data:
+        if data[:8] == PNG_MAGIC:
+            ext = "png"
+        elif data[:3] == b"\xff\xd8\xff":
+            ext = "jpeg"
+        else:
+            if ex["type"] == "image":
+                die(f"image {path!r} is neither PNG nor JPEG")
+            print(f"build_pptx: warning: photo {path!r} is not PNG/JPEG — "
+                  "using the gradient fallback (SL-23)", file=sys.stderr)
+            return block
+        media_alloc["n"] += 1
+        block["_bytes"] = data
+        block["_ext"] = ext
+        block["_rid"] = "rId2"          # one exhibit per slide, always rId2
+        block["_part"] = f"ppt/media/image{media_alloc['n']}.{ext}"
+    return block
+
+
+def render_slide_v2(proto_xml, s, layout, deck_title, page_no, theme="light",
+                    media_alloc=None):
+    """Render one v2 slide by swapping the layout's named text shapes and
+    emitting its exhibit (if any) through pptx_components.
+    Returns (xml_bytes, media, rels)."""
+    media, rels = [], []
+    root = ET.fromstring(proto_xml)
+    if layout == "content":  # legacy bullets layout inside a v2 deck
+        _set(root, "kicker", s.get("kicker", ""))
+        _set(root, "title", s.get("title", ""), multiline=True)
+        set_text(root, "body", normalize_bullets(s.get("bullets")))
+    elif layout == "hero_statement":
+        _set(root, "statement", s.get("statement", ""), multiline=True)
+        _set(root, "support", s.get("support", ""))
+    elif layout == "section_divider":
+        _set(root, "section_no", s.get("kicker", ""))
+        _set(root, "title", s.get("title", ""), multiline=True)
+    elif layout == "exec_summary_3col":
+        _set(root, "kicker", s.get("kicker", "EXECUTIVE SUMMARY"))
+        _set(root, "title", s.get("title", ""), multiline=True)
+        for i, col in enumerate(s.get("columns", [])[:3], 1):
+            _set(root, f"col{i}_head", col.get("head", ""))
+            _set_lines(root, f"col{i}_body", col.get("lines"))
+    elif layout == "big_number":
+        _set(root, "kicker", s.get("kicker", ""))
+        _set(root, "metric", s.get("value", ""))
+        _set(root, "context", s.get("context", ""), multiline=True)
+        _set(root, "source", s.get("source", ""))
+    elif layout == "before_after":
+        _set(root, "kicker", s.get("kicker", ""))
+        _set(root, "title", s.get("title", ""), multiline=True)
+        for side in ("left", "right"):
+            panel = s.get(side) or {}
+            _set(root, f"{side}_head", panel.get("head", ""))
+            _set_lines(root, f"{side}_body", panel.get("lines"))
+        _set(root, "source", s.get("source", ""))
+    elif layout == "quote_evidence":
+        _set(root, "quote", s.get("quote", ""), multiline=True)
+        _set(root, "attribution", s.get("attribution", ""))
+    elif layout == "kpi_strip":
+        _set(root, "kicker", s.get("kicker", ""))
+        _set(root, "title", s.get("title", ""), multiline=True)
+        _set(root, "source", s.get("source", ""))
+        frag, _media, _rels = pptx_components.emit(
+            "kpi_row", ZONES["kpi_strip"], {"tiles": s["tiles"]}, theme)
+        _append_fragments(root, frag)
+    elif layout == "chart_takeaway":
+        _set(root, "kicker", s.get("kicker", ""))
+        _set(root, "title", s.get("title", ""), multiline=True)
+        _set(root, "callout_head", s.get("callout_head", ""))
+        _set_lines(root, "callout_body", s.get("callout_lines"))
+        _set(root, "source", s.get("source", ""))
+        ex = s["exhibit"]
+        if ex["type"] in ("image", "photo"):
+            ex = _prep_image_block(ex, media_alloc)
+        frag, ex_media, ex_rels = pptx_components.emit(
+            ex["type"], ZONES["chart_takeaway"], ex, theme)
+        _append_fragments(root, frag)
+        media.extend(ex_media)
+        rels.extend(ex_rels)
+    elif layout == "three_cards":
+        _set(root, "kicker", s.get("kicker", ""))
+        _set(root, "title", s.get("title", ""), multiline=True)
+        card_x = (830000, 4441000, 8052000)
+        for i, c in enumerate(s.get("cards", [])[:3], 1):
+            _set(root, f"card{i}_head", c.get("head", ""))
+            _set(root, f"card{i}_line", c.get("line", ""))
+            if c.get("icon"):
+                frag, _m, _r = pptx_components.emit(
+                    "icon", (card_x[i - 1] + 250000, 2700000, 800000, 800000),
+                    {"name": c["icon"], "color": "accent", "_id": 89 + i},
+                    theme)
+                _append_fragments(root, frag)
+    elif layout == "process_flow":
+        _set(root, "kicker", s.get("kicker", ""))
+        _set(root, "title", s.get("title", ""), multiline=True)
+        _set(root, "source", s.get("source", ""))
+        frag, _m, _r = pptx_components.emit(
+            "flow", ZONES["process_flow"],
+            {"steps": s["steps"], "highlight": s.get("highlight")}, theme)
+        _append_fragments(root, frag)
+    elif layout == "timeline_roadmap":
+        _set(root, "kicker", s.get("kicker", ""))
+        _set(root, "title", s.get("title", ""), multiline=True)
+        _set(root, "source", s.get("source", ""))
+        frag, _m, _r = pptx_components.emit(
+            "timeline", ZONES["timeline_roadmap"], s["timeline"], theme)
+        _append_fragments(root, frag)
+    elif layout == "matrix_2x2":
+        mx = s["matrix"]
+        _set(root, "kicker", s.get("kicker", ""))
+        _set(root, "title", s.get("title", ""), multiline=True)
+        _set(root, "x_label", mx.get("x_label", ""))
+        _set(root, "y_label", mx.get("y_label", ""))
+        quads = mx.get("quadrants") or {}
+        for q in ("q1", "q2", "q3", "q4"):
+            _set(root, f"{q}_label", quads.get(q, ""))
+        frag, _m, _r = pptx_components.emit(
+            "matrix", ZONES["matrix_2x2"], mx, theme)
+        _append_fragments(root, frag)
+    else:
+        die(f"render_slide_v2: no renderer for layout {layout!r}")
+    _set(root, "footer", f"{deck_title} · {page_no}")
+    return (ET.tostring(root, encoding="UTF-8", xml_declaration=True),
+            media, rels)
+
+
+def build_v2(spec, out_path, force=False):
+    errors, budgets = lint_spec(spec)
+    for msg in errors:
+        print(f"build_pptx: {msg}", file=sys.stderr)
+    if errors:
+        sys.exit(1)
+    if budgets:
+        for msg in budgets:
+            prefix = "warning (--force): " if force else ""
+            print(f"build_pptx: {prefix}{msg}", file=sys.stderr)
+        if not force:
+            print("build_pptx: restraint budgets failed — tighten the story "
+                  "or rerun with --force (SL-19)", file=sys.stderr)
+            sys.exit(1)
+
+    mode = spec.get("mode", "board_preread")
+    theme = spec.get("theme") or ("dark" if mode == "keynote" else "light")
+    if len(spec["slides"]) + 1 > SLIDE_BUDGET:
+        print(f"build_pptx: warning: {len(spec['slides']) + 1} slides exceeds "
+              f"the ~{SLIDE_BUDGET}-slide executive budget (SL-6)",
+              file=sys.stderr)
+
+    with zipfile.ZipFile(template_path()) as zf:
+        parts = {info.filename: zf.read(info.filename) for info in zf.infolist()}
+    protos = {name: parts[f"ppt/slides/slide{num}.xml"]
+              for name, num in PROTOTYPES_V2.items()
+              if f"ppt/slides/slide{num}.xml" in parts}
+    for name in [k for k in parts if k.startswith("ppt/slides/")]:
+        del parts[name]
+
+    if theme == "dark":
+        parts["ppt/slideMasters/slideMaster1.xml"] = \
+            parts["ppt/slideMasters/slideMaster1.xml"].replace(
+                b'val="FFFFFF"', b'val="' + DARK_CANVAS.encode() + b'"')
+
+    deck_title = spec.get("title", "")
+    title_proto = protos["title"]
+    title_root = ET.fromstring(title_proto)
+    _set(title_root, "title", deck_title, multiline=True)
+    _set(title_root, "subtitle", spec.get("subtitle", ""), multiline=True)
+    _set(title_root, "meta", spec.get("meta", ""))
+    slides_out = [(ET.tostring(title_root, encoding="UTF-8",
+                               xml_declaration=True), [], [])]
+
+    media_alloc = {"n": 0}
+    for i, s in enumerate(spec["slides"]):
+        layout = s.get("layout") or BEAT_LAYOUT[s["beat"]][0]
+        proto = protos[layout]
+        if theme == "dark" and layout not in DARK_EXEMPT:
+            proto = recolor_dark(proto)
+        slides_out.append(render_slide_v2(proto, s, layout, deck_title,
+                                          i + 2, theme, media_alloc))
+
+    n = len(slides_out)
+    media_exts = set()
+    for i, (xml, media, rels) in enumerate(slides_out):
+        parts[f"ppt/slides/slide{i + 1}.xml"] = xml
+        rels_xml = SLIDE_RELS
+        if rels:
+            extra = "".join(
+                f'<Relationship Id="{rid}" Type="{IMAGE_REL}" '
+                f'Target="{target}"/>' for rid, target in rels)
+            rels_xml = SLIDE_RELS.replace("</Relationships>",
+                                          extra + "</Relationships>")
+        parts[f"ppt/slides/_rels/slide{i + 1}.xml.rels"] = rels_xml.encode()
+        for part_name, data in media:
+            parts[part_name] = data
+            media_exts.add(part_name.rsplit(".", 1)[1])
+    parts["ppt/presentation.xml"] = presentation_xml(n).encode()
+    parts["ppt/_rels/presentation.xml.rels"] = presentation_rels(n).encode()
+    ct = content_types(n)
+    if media_exts:
+        defaults = "".join(
+            f'<Default Extension="{ext}" ContentType="image/{ext}"/>'
+            for ext in sorted(media_exts))
+        ct = ct.replace("<Override", defaults + "<Override", 1)
+    parts["[Content_Types].xml"] = ct.encode()
+
+    core = ET.fromstring(parts["docProps/core.xml"])
+    title_el = core.find("{http://purl.org/dc/elements/1.1/}title")
+    if title_el is not None:
+        title_el.text = deck_title
+        parts["docProps/core.xml"] = ET.tostring(core, encoding="UTF-8",
+                                                 xml_declaration=True)
+
+    write_package(parts, out_path)
+    validate_package(out_path)
+    return n
+
+
+def is_v2(spec):
+    return spec.get("version") == 2 or any(
+        "beat" in s or "layout" in s for s in spec.get("slides") or []
+        if isinstance(s, dict))
 
 
 def build(spec, out_path):
@@ -202,11 +855,35 @@ def build(spec, out_path):
         parts["docProps/core.xml"] = ET.tostring(core, encoding="UTF-8",
                                                  xml_declaration=True)
 
+    write_package(parts, out_path)
+    validate_package(out_path)
+    return n
+
+
+def write_package(parts, out_path):
+    """Write the parts dict as a zip with fixed timestamps so identical
+    specs produce byte-identical decks (golden-file tests rely on this)."""
     os.makedirs(os.path.dirname(os.path.abspath(out_path)), exist_ok=True)
     with zipfile.ZipFile(out_path, "w", zipfile.ZIP_DEFLATED) as zf:
         for name, data in parts.items():
-            zf.writestr(name, data)
-    return n
+            info = zipfile.ZipInfo(name, date_time=(2026, 1, 1, 0, 0, 0))
+            info.compress_type = zipfile.ZIP_DEFLATED
+            zf.writestr(info, data)
+
+
+def validate_package(out_path):
+    """Gate every built deck on the package validator (exit 3 on findings).
+    LibreOffice tolerating a package does not mean PowerPoint will."""
+    errors, warnings = validate_pptx.validate(out_path)
+    for w in warnings:
+        print(f"build_pptx: warning: {w}", file=sys.stderr)
+    if errors:
+        for e in errors:
+            print(f"build_pptx: invalid package: {e}", file=sys.stderr)
+        print(f"build_pptx: {out_path} FAILED validation "
+              f"({len(errors)} finding(s)); file kept for debugging",
+              file=sys.stderr)
+        sys.exit(3)
 
 
 SELFTEST_SPEC = {
@@ -257,10 +934,183 @@ def selftest(out_path=None):
     return 0
 
 
+SHOWCASE_SPEC = {
+    "version": 2,
+    "title": "Every archetype layout, rendered once, in one deck",
+    "subtitle": "Showcase — generated by build_pptx.py --showcase",
+    "meta": "Showcase · vibe plugin",
+    "slides": [
+        {"beat": "hook", "layout": "big_number", "kicker": "THE HOOK",
+         "value": "34,000", "context": "signups per day once the change landed",
+         "source": "Source: showcase fixture (2026)"},
+        {"beat": "transition", "kicker": "01", "title": "The problem"},
+        {"beat": "problem", "layout": "before_after",
+         "title": "The change replaces slow manual work with one flow",
+         "left": {"head": "Before", "lines": ["Manual, error-prone",
+                                              "Three teams involved"]},
+         "right": {"head": "After", "lines": ["One automated flow",
+                                              "One owner"]},
+         "source": "Source: showcase fixture (2026)"},
+        {"beat": "status", "layout": "kpi_strip", "kicker": "STATUS",
+         "title": "Green across the board with one watch item",
+         "tiles": [
+             {"label": "Revenue", "value": "4.2M", "delta": "+8%",
+              "direction": "up"},
+             {"label": "Churn", "value": "2.1%", "delta": "-0.4pt",
+              "direction": "down", "sentiment": "good"},
+             {"label": "NPS", "value": 61, "delta": "+3", "direction": "up"},
+             {"label": "Uptime", "value": "99.98%", "delta": "0",
+              "direction": "flat"}],
+         "source": "Source: showcase fixture (2026)"},
+        {"beat": "proof", "layout": "chart_takeaway", "kicker": "EVIDENCE",
+         "title": "Region North wins on repeat purchases by a wide margin",
+         "exhibit": {"type": "bars", "unit": "%", "highlight": "North",
+                     "items": [{"label": "North", "value": 46},
+                               {"label": "East", "value": 32},
+                               {"label": "South", "value": 28},
+                               {"label": "West", "value": 19}]},
+         "callout_head": "So what",
+         "callout_lines": ["North's playbook is repeatable",
+                           "Roll it out to East first"],
+         "source": "Source: showcase fixture (2026)"},
+        {"beat": "problem", "layout": "chart_takeaway", "kicker": "TREND",
+         "title": "Support tickets doubled in four months",
+         "exhibit": {"type": "column", "unit": "", "highlight": "Jun",
+                     "items": [{"label": "Mar", "value": 240},
+                               {"label": "Apr", "value": 310},
+                               {"label": "May", "value": 400},
+                               {"label": "Jun", "value": 480}]},
+         "callout_head": "So what",
+         "callout_lines": ["Growth outpaced the support team",
+                           "Hiring alone will not close the gap"],
+         "source": "Source: showcase fixture (2026)"},
+        {"beat": "how_it_works", "layout": "process_flow",
+         "kicker": "HOW IT WORKS",
+         "title": "Four steps take a ticket from intake to insight",
+         "highlight": "Resolve",
+         "steps": [{"label": "Intake", "detail": "One form, one queue"},
+                   {"label": "Triage", "detail": "Auto-routed by topic"},
+                   {"label": "Resolve", "detail": "Experts own hard cases"},
+                   {"label": "Learn", "detail": "Weekly pattern review"}]},
+        {"beat": "roadmap", "layout": "timeline_roadmap", "kicker": "ROADMAP",
+         "title": "Two phases ship before the year closes",
+         "timeline": {
+             "phases": [{"label": "Pilot", "start": 0, "end": 3},
+                        {"label": "Rollout", "start": 3, "end": 8},
+                        {"label": "Scale team", "start": 5, "end": 9}],
+             "milestones": [{"label": "Pilot go", "at": 0},
+                            {"label": "Board review", "at": 4},
+                            {"label": "All regions", "at": 9, "final": True}],
+             "today": 2}},
+        {"beat": "insight", "layout": "matrix_2x2", "kicker": "THE TRADE-OFF",
+         "title": "Automation wins on impact for the least effort",
+         "matrix": {
+             "x_label": "Effort to implement: low to high",
+             "y_label": "Impact on resolution time: low to high",
+             "quadrants": {"q1": "Quick wins", "q2": "Big bets"},
+             "items": [{"label": "Automation", "x": 0.25, "y": 0.8,
+                        "accent": True},
+                       {"label": "Hiring", "x": 0.75, "y": 0.55},
+                       {"label": "New tooling", "x": 0.6, "y": 0.3},
+                       {"label": "Training", "x": 0.3, "y": 0.35}]}},
+        {"beat": "proof", "layout": "chart_takeaway", "kicker": "IN THE WILD",
+         "title": "The new console shows every queue on one screen",
+         "exhibit": {"type": "image", "path": "__SHOWCASE_PNG__",
+                     "alt": "console screenshot"},
+         "callout_head": "So what",
+         "callout_lines": ["No more tab-hopping",
+                           "One owner sees the whole flow"],
+         "source": "Source: product screenshot (2026)"},
+        {"beat": "solution", "layout": "three_cards", "kicker": "THE SOLUTION",
+         "title": "Three moves close the support gap for good",
+         "cards": [
+             {"icon": "bot", "head": "Deflect",
+              "line": "Answer the top 20 questions automatically"},
+             {"icon": "users", "head": "Specialize",
+              "line": "Route hard cases to product experts"},
+             {"icon": "gauge", "head": "Measure",
+              "line": "Watch resolution time weekly"}]},
+        {"beat": "proof", "layout": "quote_evidence",
+         "quote": "Resolution time dropped 41% in the first month.",
+         "attribution": "— Head of Support, pilot review"},
+        {"beat": "ask", "layout": "exec_summary_3col",
+         "title": "Approve the rollout to all regions this quarter",
+         "columns": [
+             {"head": "Situation", "lines": ["Pilot beat every target"]},
+             {"head": "Findings", "lines": ["Playbook transfers cleanly"]},
+             {"head": "Recommendation", "lines": ["Fund the rollout now"]}]},
+        {"beat": "agenda", "layout": "content", "kicker": "NEXT STEPS",
+         "title": "What happens in the two weeks after approval",
+         "bullets": ["Week 1: staffing and access",
+                     {"text": "Owners named per region", "level": 1},
+                     "Week 2: first region live"]},
+        {"beat": "ask", "layout": "hero_statement",
+         "statement": "Approve the rollout today",
+         "support": "The pilot already proved it works"},
+    ],
+}
+
+# XML fragments that must appear in the showcase package — one per emitter
+# family (the golden-fragment gate; exact bytes are covered by tests).
+SHOWCASE_ASSERTS = {
+    "ppt/slides/slide2.xml": ["34,000"],
+    "ppt/slides/slide3.xml": ["gradFill"],
+    "ppt/slides/slide5.xml": ["kpi_tile_1", "kpi_delta_glyph_1",
+                              "outerShdw"],
+    "ppt/slides/slide6.xml": ["bar_1", 'val="C9A227"'],
+    "ppt/slides/slide7.xml": ["col_1", "col_baseline"],
+    "ppt/slides/slide8.xml": ["flow_box_1", "flow_arrow_1"],
+    "ppt/slides/slide9.xml": ["tl_spine", "tl_ms_3", "tl_today"],
+    "ppt/slides/slide10.xml": ["mx_item_Automation", "plot_field"],
+    "ppt/slides/slide11.xml": ['r:embed="rId2"', "image_console screenshot"],
+    "ppt/slides/slide12.xml": ["icon_bot", "icon_users", "icon_gauge",
+                               "cubicBezTo", 'fill="none"'],
+    "ppt/slides/slide16.xml": ["Approve the rollout today"],
+}
+
+
+def showcase(out_path=None):
+    keep = out_path is not None
+    if not keep:
+        fd, out_path = tempfile.mkstemp(suffix=".pptx", prefix="vibe_showcase_")
+        os.close(fd)
+    png_fd, png_path = tempfile.mkstemp(suffix=".png", prefix="vibe_showcase_")
+    with os.fdopen(png_fd, "wb") as fh:
+        fh.write(pptx_components.make_test_png())
+    spec = json.loads(json.dumps(SHOWCASE_SPEC).replace("__SHOWCASE_PNG__",
+                                                        png_path.replace("\\", "/")))
+    try:
+        n = build_v2(spec, out_path)
+        layouts = {s.get("layout") or BEAT_LAYOUT[s["beat"]][0]
+                   for s in spec["slides"]}
+        archetypes = layouts - {"content"}
+        with zipfile.ZipFile(out_path) as zf:
+            names = set(zf.namelist())
+            assert "ppt/media/image1.png" in names, "media part missing"
+            for part, needles in SHOWCASE_ASSERTS.items():
+                xml = zf.read(part).decode("utf-8")
+                for needle in needles:
+                    assert needle in xml, f"{part}: missing {needle!r}"
+    except AssertionError as exc:
+        print(f"build_pptx: showcase FAILED: {exc}", file=sys.stderr)
+        return 2
+    finally:
+        os.unlink(png_path)
+        if not keep and os.path.exists(out_path):
+            os.unlink(out_path)
+    print(f"build_pptx: showcase OK ({n} slides, {len(archetypes)} archetype "
+          f"layouts + content)" + (f" -> {out_path}" if keep else ""))
+    return 0
+
+
 def main():
     args = sys.argv[1:]
     if args and args[0] == "--selftest":
         return selftest(args[1] if len(args) > 1 else None)
+    if args and args[0] == "--showcase":
+        return showcase(args[1] if len(args) > 1 else None)
+    force = "--force" in args
+    args = [a for a in args if a != "--force"]
     if len(args) != 2:
         print(__doc__.strip(), file=sys.stderr)
         return 1
@@ -269,7 +1119,10 @@ def main():
             spec = json.load(f)
     except (OSError, json.JSONDecodeError) as exc:
         die(f"cannot read spec: {exc}")
-    n = build(spec, args[1])
+    if is_v2(spec):
+        n = build_v2(spec, args[1], force=force)
+    else:
+        n = build(spec, args[1])
     print(f"build_pptx: wrote {args[1]} ({n} slides)")
     return 0
 

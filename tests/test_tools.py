@@ -4,11 +4,15 @@ Runs scripts/build_pptx.py and scripts/lint_drawio.py exactly as a user
 would — as child processes — asserting exit codes, stdout, and stderr.
 Never imports the scripts as modules.
 """
+import json
 import os
+import re
+import shutil
 import subprocess
 import sys
 import tempfile
 import unittest
+import urllib.parse
 
 REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 SCRIPTS = os.path.join(REPO, "scripts")
@@ -106,6 +110,295 @@ class LintDrawioTest(unittest.TestCase):
         code, out, err = self.lint(commented)
         self.assertEqual(code, 2, f"stdout: {out}\nstderr: {err}")
         self.assertIn("XML comments present", out)
+
+
+FIXTURES = os.path.join(REPO, "tests", "fixtures")
+REFERENCE_DOC = os.path.join(
+    REPO, "skills", "drawio", "references", "drawio-diagrams.md")
+
+# Style tokens, verbatim from the reference doc ("Style tokens (copy verbatim)").
+TOKEN_CARD = (
+    "rounded=1;arcSize=12;whiteSpace=wrap;html=1;fillColor=#FFFFFF;"
+    "strokeColor=#DDE3EA;strokeWidth=1;fontFamily=Helvetica;fontSize=12;"
+    "fontColor=#1F2937;shadow=0;"
+)
+TOKEN_EDGE = (
+    "edgeStyle=orthogonalEdgeStyle;rounded=1;jettySize=auto;orthogonalLoop=1;"
+    "strokeWidth=1.5;strokeColor=#8A8F98;endArrow=blockThin;endFill=1;"
+    "startArrow=none;jumpStyle=gap;jumpSize=8;fontSize=11;"
+    "labelBackgroundColor=#FFFFFF;"
+)
+
+# Minimal single-page shell on the declared 8px grid (DG-18) for style probes.
+DRAWIO_SHELL = """\
+<mxfile host="test">
+  <diagram id="d1" name="Page-1">
+    <mxGraphModel dx="0" dy="0" grid="1" gridSize="8">
+      <root>
+        <mxCell id="0"/>
+        <mxCell id="1" parent="0"/>
+{cells}
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>
+"""
+
+
+def drawio_vertex(cid, style, x, y, w, h, parent="1", value="v"):
+    return (
+        f'        <mxCell id="{cid}" value="{value}" style="{style}" '
+        f'vertex="1" parent="{parent}">\n'
+        f'          <mxGeometry x="{x}" y="{y}" width="{w}" height="{h}" '
+        f'as="geometry"/>\n        </mxCell>'
+    )
+
+
+def drawio_edge(cid, style, source, target, value=""):
+    return (
+        f'        <mxCell id="{cid}" value="{value}" style="{style}" '
+        f'edge="1" parent="1" source="{source}" target="{target}">\n'
+        f'          <mxGeometry relative="1" as="geometry"/>\n'
+        f'        </mxCell>'
+    )
+
+
+def lint_text(xml_text):
+    """Write xml_text to a temp .drawio and lint it via run_tool."""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        path = os.path.join(tmpdir, "diagram.drawio")
+        with open(path, "w", encoding="utf-8") as f:
+            f.write(xml_text)
+        return run_tool("lint_drawio.py", path)
+
+
+def lint_cells(*cells):
+    return lint_text(DRAWIO_SHELL.format(cells="\n".join(cells)))
+
+
+class LintDrawioStyleErrorTest(unittest.TestCase):
+    """E1/E2: style errors added for DG-17..21 (exit 2 on stdout)."""
+
+    def test_base64_data_uri_exits_two_naming_cell_and_dg20(self):
+        code, out, err = lint_cells(drawio_vertex(
+            "icon-bad", "rounded=1;image=data:image/svg+xml;base64,PHN2Zz4=",
+            40, 40, 160, 64))
+        self.assertEqual(code, 2, f"stdout: {out}\nstderr: {err}")
+        self.assertIn("icon-bad", out)
+        self.assertIn("DG-20", out)
+
+    def test_url_encoded_svg_icon_lints_clean(self):
+        enc = urllib.parse.quote(
+            '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" '
+            'viewBox="0 0 24 24"><circle cx="12" cy="12" r="11" '
+            'fill="#76B900"/></svg>', safe="")
+        style = (
+            "label;whiteSpace=wrap;html=1;rounded=1;arcSize=10;imageWidth=24;"
+            "imageHeight=24;imageAlign=left;imageVerticalAlign=middle;"
+            f"spacingLeft=40;image=data:image/svg+xml,{enc};"
+        )
+        code, out, err = lint_cells(drawio_vertex("icon", style, 40, 40, 224, 64))
+        self.assertEqual(code, 0, f"stdout: {out}\nstderr: {err}")
+        self.assertEqual(err, "")
+
+    def test_non_numeric_arcsize_exits_two(self):
+        code, out, err = lint_cells(drawio_vertex(
+            "n1", "rounded=1;arcSize=abc", 40, 40, 160, 64))
+        self.assertEqual(code, 2, f"stdout: {out}\nstderr: {err}")
+        self.assertIn('arcSize="abc" is not numeric', out)
+
+
+class LintDrawioStyleWarningTest(unittest.TestCase):
+    """W1..W7: advisory style warnings (stderr, exit stays 0)."""
+
+    def test_off_grid_vertex_warns_dg18(self):
+        code, out, err = lint_cells(drawio_vertex(
+            "n1", TOKEN_CARD, 41, 40, 160, 64))
+        self.assertEqual(code, 0, f"stdout: {out}\nstderr: {err}")
+        self.assertIn("off the declared 8px grid", err)
+        self.assertIn("x=41", err)
+        self.assertIn("DG-18", err)
+
+    def test_on_grid_vertex_is_silent(self):
+        code, out, err = lint_cells(drawio_vertex(
+            "n1", TOKEN_CARD, 40, 40, 160, 64))
+        self.assertEqual(code, 0, f"stdout: {out}\nstderr: {err}")
+        self.assertEqual(err, "")
+
+    def test_edge_without_orthogonal_style_warns(self):
+        code, out, err = lint_cells(
+            drawio_vertex("n1", TOKEN_CARD, 40, 40, 160, 64),
+            drawio_vertex("n2", TOKEN_CARD, 40, 160, 160, 64),
+            drawio_edge("e1", "endArrow=classic;", "n1", "n2"))
+        self.assertEqual(code, 0, f"stdout: {out}\nstderr: {err}")
+        self.assertIn("edge e1 missing edgeStyle=orthogonalEdgeStyle", err)
+
+    def test_dashed_edge_warns_dg19(self):
+        code, out, err = lint_cells(
+            drawio_vertex("n1", TOKEN_CARD, 40, 40, 160, 64),
+            drawio_vertex("n2", TOKEN_CARD, 40, 160, 160, 64),
+            drawio_edge("e1", TOKEN_EDGE + "dashed=1;", "n1", "n2"))
+        self.assertEqual(code, 0, f"stdout: {out}\nstderr: {err}")
+        self.assertIn("edge e1 is dashed", err)
+        self.assertIn("DG-19", err)
+
+    def test_nesting_depth_four_warns_dg18(self):
+        container = "container=1;whiteSpace=wrap;html=1;"
+        code, out, err = lint_cells(
+            drawio_vertex("c1", container, 40, 40, 640, 400),
+            drawio_vertex("c2", container, 24, 24, 480, 320, parent="c1"),
+            drawio_vertex("c3", container, 24, 24, 320, 240, parent="c2"),
+            drawio_vertex("n1", TOKEN_CARD, 24, 24, 160, 64, parent="c3"))
+        self.assertEqual(code, 0, f"stdout: {out}\nstderr: {err}")
+        self.assertIn("n1 is nested 4 levels deep", err)
+        self.assertIn("DG-18", err)
+
+    def test_sixteen_px_sibling_gap_warns_dg18(self):
+        code, out, err = lint_cells(
+            drawio_vertex("n1", TOKEN_CARD, 40, 40, 160, 64),
+            drawio_vertex("n2", TOKEN_CARD, 216, 40, 160, 64))
+        self.assertEqual(code, 0, f"stdout: {out}\nstderr: {err}")
+        self.assertIn("boxes n1 and n2 are only 16px apart", err)
+        self.assertIn("DG-18", err)
+
+    def test_far_apart_siblings_are_silent(self):
+        code, out, err = lint_cells(
+            drawio_vertex("n1", TOKEN_CARD, 40, 40, 160, 64),
+            drawio_vertex("n2", TOKEN_CARD, 280, 40, 160, 64))
+        self.assertEqual(code, 0, f"stdout: {out}\nstderr: {err}")
+        self.assertEqual(err, "")
+
+    def test_off_palette_color_warns_dg17(self):
+        code, out, err = lint_cells(drawio_vertex(
+            "n1", "rounded=1;fillColor=#FF00FF;", 40, 40, 160, 64))
+        self.assertEqual(code, 0, f"stdout: {out}\nstderr: {err}")
+        self.assertIn("fillColor=#FF00FF is outside the token palette", err)
+        self.assertIn("DG-17", err)
+
+    def test_default_palette_color_is_silent(self):
+        code, out, err = lint_cells(drawio_vertex(
+            "n1", "rounded=1;fillColor=#DAE8FC;strokeColor=#6C8EBF;",
+            40, 40, 160, 64))
+        self.assertEqual(code, 0, f"stdout: {out}\nstderr: {err}")
+        self.assertEqual(err, "")
+
+    def test_arcsize_out_of_range_warns_dg21(self):
+        code, out, err = lint_cells(drawio_vertex(
+            "n1", "rounded=1;arcSize=40;", 40, 40, 160, 64))
+        self.assertEqual(code, 0, f"stdout: {out}\nstderr: {err}")
+        self.assertIn("arcSize=40 is outside 2-24", err)
+        self.assertIn("DG-21", err)
+
+
+class LintDrawioRegressionPinTest(unittest.TestCase):
+    """The reference doc's canonical skeleton must stay lint-clean forever."""
+
+    def test_canonical_skeleton_is_clean_with_empty_stderr(self):
+        with open(REFERENCE_DOC, encoding="utf-8") as f:
+            doc = f.read()
+        match = re.search(r"```xml\n(.*?)```", doc, re.S)
+        self.assertIsNotNone(match, "canonical skeleton not found in reference doc")
+        code, out, err = lint_text(match.group(1))
+        self.assertEqual(code, 0, f"stdout: {out}\nstderr: {err}")
+        self.assertEqual(out, "")
+        self.assertEqual(err, "")
+
+
+class DrawioShowcaseFixtureTest(unittest.TestCase):
+    """DM-6: the checked-in showcase exercises the full style system, clean."""
+
+    PATH = os.path.join(FIXTURES, "showcase.drawio")
+
+    def test_showcase_lints_clean_with_empty_stdout_and_stderr(self):
+        code, out, err = run_tool("lint_drawio.py", self.PATH)
+        self.assertEqual(code, 0, f"stdout: {out}\nstderr: {err}")
+        self.assertEqual(out, "")
+        self.assertEqual(err, "")
+
+    def test_showcase_exercises_the_full_style_system(self):
+        with open(self.PATH, encoding="utf-8") as f:
+            xml = f.read()
+        self.assertIn('gridSize="8"', xml)                    # DG-18
+        self.assertIn("gradientColor=#2A3618", xml)           # dark hero band
+        self.assertIn("container=1", xml)                     # zone container
+        self.assertIn("jumpStyle=gap", xml)                   # DG-19 edges
+        self.assertIn("image=data:image/svg+xml,", xml)       # DG-20 icon
+        self.assertNotIn(";base64", xml)
+        self.assertEqual(xml.count("dashed=1"), 1)            # one boundary
+
+
+class DrawioLayoutTest(unittest.TestCase):
+    """drawio_layout.py --plain: recorded dot output -> snapped mxGeometry px."""
+
+    def test_plain_fixture_maps_exactly_and_snaps_to_8(self):
+        code, out, err = run_tool(
+            "drawio_layout.py", "--plain", os.path.join(FIXTURES, "flow.plain"))
+        self.assertEqual(code, 0, f"stdout: {out}\nstderr: {err}")
+        layout = json.loads(out)
+        # y-flip + center->corner + 40px margin + 8px snap, hand-computed
+        # from the recorded plain coordinates (72 DPI):
+        self.assertEqual(layout["nodes"]["customer"],
+                         {"x": 40, "y": 200, "w": 144, "h": 64})
+        self.assertEqual(layout["nodes"]["credit"],
+                         {"x": 640, "y": 40, "w": 144, "h": 64})
+        self.assertEqual(layout["nodes"]["finance"],
+                         {"x": 1448, "y": 200, "w": 144, "h": 64})
+        for name, geo in layout["nodes"].items():
+            for attr, value in geo.items():
+                self.assertEqual(value % 8, 0, f"{name}.{attr}={value} off-grid")
+        self.assertEqual(layout["edges"][0], ["customer", "portal", "places order"])
+        self.assertIn(["credit", "approve", ""], layout["edges"])
+
+    def test_missing_dot_exits_one_with_hand_grid_hint(self):
+        env = {k: v for k, v in os.environ.items() if k not in ISOLATE}
+        with tempfile.TemporaryDirectory() as empty:
+            env["PATH"] = empty  # no dot anywhere on PATH
+            proc = subprocess.run(
+                [sys.executable, os.path.join(SCRIPTS, "drawio_layout.py"),
+                 "flow.dot"],
+                capture_output=True, text=True, env=env, cwd=REPO, timeout=60,
+            )
+        self.assertEqual(proc.returncode, 1, f"stderr: {proc.stderr}")
+        self.assertIn("dot not found", proc.stderr)
+
+    def test_no_arguments_is_a_usage_error(self):
+        code, out, err = run_tool("drawio_layout.py")
+        self.assertEqual(code, 1)
+        self.assertIn("Usage", err)
+
+
+class DrawioLayoutEndToEndTest(unittest.TestCase):
+    """dot -> drawio_layout.py -> token-styled .drawio -> lint exit 0."""
+
+    DOT = """\
+digraph flow {
+  rankdir=LR;
+  nodesep=0.6;
+  ranksep=0.85;
+  node [shape=box, fixedsize=true, width=1.9444, height=0.8333];
+  intake -> review [label="step one"];
+  review -> release [label="step two"];
+}
+"""
+
+    @unittest.skipUnless(shutil.which("dot"), "graphviz dot not on PATH")
+    def test_dot_layout_wrapped_in_tokens_lints_clean(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            dot_path = os.path.join(tmpdir, "flow.dot")
+            with open(dot_path, "w", encoding="utf-8") as f:
+                f.write(self.DOT)
+            code, out, err = run_tool("drawio_layout.py", dot_path)
+            self.assertEqual(code, 0, f"stdout: {out}\nstderr: {err}")
+        layout = json.loads(out)
+        cells = [drawio_vertex(name, TOKEN_CARD, geo["x"], geo["y"],
+                               geo["w"], geo["h"], value=name)
+                 for name, geo in layout["nodes"].items()]
+        cells += [drawio_edge(f"e{i}", TOKEN_EDGE, tail, head, value=label)
+                  for i, (tail, head, label) in enumerate(layout["edges"], 1)]
+        code, out, err = lint_cells(*cells)
+        self.assertEqual(code, 0, f"stdout: {out}\nstderr: {err}")
+        self.assertEqual(out, "")
+        self.assertEqual(err, "")
 
 
 if __name__ == "__main__":

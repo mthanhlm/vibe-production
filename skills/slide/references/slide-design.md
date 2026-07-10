@@ -82,3 +82,40 @@ per rule. Cite rules by ID (e.g. "violates SL-4").
   pre-read (sent 1–2 days ahead) and surface what directors check first:
   cash/runway, metrics vs plan, and explicit asks/decisions needed.
   [articles.sequoiacap.com/preparing-a-board-deck]
+
+## Beat-driven layouts (spec v2 — machine-enforced)
+
+- **SL-17 (MUST)** Tag every slide with its story beat (hook, problem,
+  insight, solution, how_it_works, proof, risks, roadmap, ask, status,
+  transition, context, agenda); the beat — not taste — picks the layout from
+  the catalog's BEAT_LAYOUT table. Bullets (`content`) are legitimate only
+  for agendas and next-steps lists.
+  [layout-catalog.md; Zelazny, Say It With Charts — message picks the form]
+- **SL-18 (MUST)** Must-be-visual triggers: when the takeaway contains a
+  comparison/ranking → bars; share change over time → column/line; a bridge
+  between two numbers → waterfall; a process → flow; a plan with dates →
+  timeline; a trade-off across two dimensions → 2×2; a single standout
+  statistic → big_number. A slide whose takeaway matches a trigger may not
+  be a bullet list. [Zelazny message→chart mapping; McKinsey exhibit craft]
+- **SL-19 (MUST)** Respect the restraint budgets — they ARE the aesthetic:
+  action titles ≤15 words with no "and"; per-layout body-word caps
+  (board_preread vs keynote modes); exactly one exhibit per slide; ≤6 KPI
+  tiles; ≤5 flow steps; exactly 3 cards; quote ≤150 chars; ≤4 line series.
+  The builder fails on violations; `--force` downgrades them to warnings
+  and is a user decision, never a reflex. [Duarte glance test; SL-9]
+- **SL-20 (MUST)** Every quantitative exhibit carries a "Source: <origin>
+  (year)" line. An unsourced number reads as an opinion.
+  [Economist style guide; analyst-deck conventions]
+- **SL-21 (MUST)** One semantic accent per slide: the accent color marks
+  exactly the datum the title names — every other series/bar/step renders
+  grey. Green/red only for genuinely good/bad deltas (kpi tiles use
+  direction + sentiment), never decoration. [Knaflic preattentive focus;
+  SL-12]
+- **SL-22 (SHOULD)** Alternate quantitative exhibits (charts, tiles) with
+  conceptual ones (flows, cards, matrices) so the deck breathes; three
+  consecutive same-kind slides is a smell. [McKinsey deck pacing]
+- **SL-23 (MUST)** Photos only from license-safe sources: user-supplied
+  files or fetch_photo.py (Openverse CC0/Public-Domain, attribution kept on
+  the slide). A missing photo degrades to the branded gradient field —
+  delivery never blocks on photography, and license metadata is treated as
+  unwarranted. [Openverse ToS; verify-photos research 2026-07-10]

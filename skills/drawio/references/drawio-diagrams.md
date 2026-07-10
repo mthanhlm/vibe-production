@@ -62,6 +62,99 @@ per rule. Cite rules by ID (e.g. "violates DG-4").
   grayscale printing and red/green color-blindness.
   [a11y-collective.com/blog/accessible-charts]
 
+## Style tokens (copy verbatim)
+
+Single source of truth for every style string (probe-proven 2026-07-10;
+research §6 in `.vibe/research/2026-07-10-enterprise-visual-uplift.md`).
+Start from a token, never from scratch (DG-17).
+
+Light theme (default):
+
+```
+node card:      rounded=1;arcSize=12;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#DDE3EA;strokeWidth=1;fontFamily=Helvetica;fontSize=12;fontColor=#1F2937;shadow=0;
+zone container: rounded=1;arcSize=6;container=1;collapsible=0;verticalAlign=top;align=left;spacingLeft=12;spacingTop=8;fontStyle=1;fontSize=12;fillColor=#76B900;fillOpacity=6;strokeColor=#76B900;strokeWidth=1;whiteSpace=wrap;html=1;
+neutral edge:   edgeStyle=orthogonalEdgeStyle;rounded=1;jettySize=auto;orthogonalLoop=1;strokeWidth=1.5;strokeColor=#8A8F98;endArrow=blockThin;endFill=1;startArrow=none;jumpStyle=gap;jumpSize=8;fontSize=11;labelBackgroundColor=#FFFFFF;
+```
+
+Dark theme (hero one-pagers):
+
+```
+hero band:      rounded=1;arcSize=10;fillColor=#1E1E1E;gradientColor=#2A3618;gradientDirection=south;strokeColor=#76B900;strokeWidth=1;fontColor=#FFFFFF;fontStyle=1;whiteSpace=wrap;html=1;
+```
+
+Official cloud notation (icon libraries bundled with draw.io):
+
+```
+AWS node:       sketch=0;shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.lambda;fillColor=#ED7100;strokeColor=#ffffff;verticalLabelPosition=bottom;verticalAlign=top;align=center;fontSize=12;html=1;
+```
+
+Semantic colors (DG-12) reuse the draw.io defaults from pitfall 9:
+risk/problem = fill `#F8CECC` stroke `#B85450`; good/on-target = fill
+`#D5E8D4` stroke `#82B366`.
+
+Frozen palette — `scripts/lint_drawio.py` warns (DG-17) on any
+`fillColor/strokeColor/fontColor/gradientColor/labelBackgroundColor` value
+outside this list (case-insensitive; `none` and `default` always allowed):
+tokens `#FFFFFF #000000 #1E1E1E #1F2937 #2A3618 #76B900 #8A8F98 #DDE3EA
+#ED7100` plus draw.io defaults `#DAE8FC #D5E8D4 #FFF2CC #F8CECC #6C8EBF
+#82B366 #D6B656 #B85450` (pitfall 9).
+
+### Style rules
+
+- **DG-17 (MUST)** Start every style from a named token above; restrict
+  colors to the frozen palette; ≤5 hues per diagram with exactly one
+  accent, and put the accent only on the primary path.
+- **DG-18 (MUST)** Lay out on an 8px grid: `gridSize="8"` on the model and
+  every vertex x/y/width/height a multiple of 8 (the DG-14 standard sizes
+  round to 144×64 boxes and 144×80 rhombus on this grid); sibling gaps
+  ≥40px (24px hard floor); container children padded ≥24px from the
+  container edge; containers nested at most 3 levels deep.
+- **DG-19 (MUST)** Edge discipline: every edge carries
+  `edgeStyle=orthogonalEdgeStyle;rounded=1` plus `jumpStyle=gap` (line
+  jumps at crossings); `dashed=1` is reserved exclusively for
+  logical/security boundary containers — never edges or plain nodes.
+- **DG-20 (MUST)** Inline icons only as URL-encoded SVG data-URIs
+  (`image=data:image/svg+xml,<urllib.parse.quote(svg, safe='')>`) — never
+  `;base64`: the semicolon terminates the style key and corrupts the
+  style. Recipe (stdlib, probe-proven):
+
+  ```python
+  import urllib.parse
+  enc = urllib.parse.quote('<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"><circle cx="12" cy="12" r="11" fill="#0B5FFF"/><path d="M7 12.5l3.2 3.2L17 9" stroke="#FFFFFF" stroke-width="2.4" fill="none"/></svg>', safe='')
+  style = f'label;whiteSpace=wrap;html=1;rounded=1;arcSize=10;imageWidth=24;imageHeight=24;imageAlign=left;imageVerticalAlign=middle;spacingLeft=40;image=data:image/svg+xml,{enc};'
+  ```
+
+  Keep icon artwork on a 24×24 viewBox; `imageAlign=left;spacingLeft=40`
+  clears the label text off the icon.
+- **DG-21 (SHOULD)** Effects restraint: 2-stop gradients only
+  (`gradientColor` + `gradientDirection`); `arcSize` between 2 and 24;
+  blurred-shadow keys (`shadowBlur`/`shadowOpacity`/`shadowColor`/
+  `shadowOffsetX`/`shadowOffsetY`) render only in draw.io ≥24.0 — plain
+  `shadow=1` is the portable fallback; Helvetica is the portable font
+  default (web fonts depend on the viewing environment).
+
+## Fidelity self-check (no local renderer)
+
+The linter proves structure, not looks — no draw.io renderer exists on the
+delivery machine. Two layers of defense:
+
+One-time human check (once per viewer generation, in app.diagrams.net):
+
+- [ ] 2-stop and radial gradients render (hero band token)
+- [ ] blurred-shadow keys render (draw.io ≥24.0; otherwise `shadow=1`)
+- [ ] inline URL-encoded SVG icons render at 24×24
+- [ ] diagram survives grayscale export — meaning intact without color
+      (DG-13)
+
+Pre-delivery model checklist (every diagram, before linting):
+
+- [ ] every style string starts from a token, verbatim (DG-17)
+- [ ] exactly one accent hue, on the primary path only (DG-17)
+- [ ] every label fits its box: ~7px per character at 12pt plus 15% slack
+      must not exceed the box width — widen the box or shorten the label
+- [ ] any viewer-version-dependent feature used (e.g. blurred shadows) is
+      named in the delivery note
+
 ## Layout & generation quality
 
 - **DG-14 (MUST)** Lay out on a coarse grid with non-intersecting bounding

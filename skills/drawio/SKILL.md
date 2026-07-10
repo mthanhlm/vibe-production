@@ -31,6 +31,16 @@ BEFORE authoring any XML.
    (DG-9); semantic colors only — red=risk, green=on-track — and never
    color alone (DG-12, DG-13); grid layout with 40–60px gutters and zero
    overlaps (DG-14); orthogonal edges, no hand-placed waypoints (DG-15).
+   Pick a theme: light (default) or dark (hero one-pagers only). Build
+   every style from the reference's verbatim tokens (DG-17) and lay out
+   on the 8px grid — `gridSize="8"`, every vertex x/y/width/height a
+   multiple of 8 (DG-18).
+3b. **Layout oracle (optional).** For >6 nodes or non-linear topology,
+   write a small `.dot` file (`node [shape=box, fixedsize=true,
+   width=1.9444, height=0.8333]` — token box sizes) and run
+   `python3 <plugin-root>/scripts/drawio_layout.py <file>.dot`: it prints
+   snapped mxGeometry positions as JSON. Exit 1 means dot is absent —
+   fall back to the DG-14 hand grid.
 4. **Author the XML** — uncompressed mxfile, following the reference's
    skeleton and its 11-pitfall checklist: structural cells 0/1, unique
    ids, vertices before edges, every edge with
@@ -38,7 +48,11 @@ BEFORE authoring any XML.
 5. **Lint until clean.**
    `python3 <plugin-root>/scripts/lint_drawio.py <file>` (the plugin
    root is two directories above this SKILL.md) — fix every error AND
-   warning, re-lint to exit 0. Never deliver an unlinted file.
+   warning, re-lint to exit 0. Never deliver an unlinted file. The
+   linter also enforces DG-17..21 (palette, grid, edge discipline,
+   icons, effects) — a style warning means redesign, not annotation.
 6. **Deliver.** Report the path and how to open it: app.diagrams.net,
    the draw.io desktop app, or the VS Code draw.io extension (export to
-   PNG/PDF from there via File → Export).
+   PNG/PDF from there via File → Export). Name any viewer-version-
+   dependent feature used (e.g. blurred-shadow keys need draw.io ≥24.0)
+   and point at the reference's "Fidelity self-check" checklist.

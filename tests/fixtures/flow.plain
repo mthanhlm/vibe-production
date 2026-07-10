@@ -1,0 +1,17 @@
+graph 1 21.542 3.0972
+node customer 0.97222 0.48611 1.9444 0.83333 customer solid box black lightgrey
+node portal 5.0139 1.3194 1.9444 0.83333 portal solid box black lightgrey
+node credit 9.3194 2.6806 1.9444 0.83333 credit solid box black lightgrey
+node stock 9.3194 1.25 1.9444 0.83333 stock solid box black lightgrey
+node approve 12.139 1.3194 1.9444 0.83333 approve solid box black lightgrey
+node ship 16.042 0.48611 1.9444 0.83333 ship solid box black lightgrey
+node finance 20.569 0.48611 1.9444 0.83333 finance solid box black lightgrey
+edge customer portal 4 1.9475 0.68572 2.5362 0.80793 3.2913 0.9647 3.9032 1.0917 "places order" 2.9931 1.1181 solid black
+edge portal credit 4 5.9878 1.6249 6.6471 1.8347 7.5238 2.1136 8.2104 2.3321 "requests check" 7.1667 2.2986 solid black
+edge portal stock 4 5.9878 1.3039 6.6457 1.2932 7.5201 1.279 8.2061 1.2678 reserves 7.1667 1.3958 solid black
+edge credit approve 4 10.19 2.2629 10.491 2.1159 10.832 1.9496 11.143 1.798 solid black
+edge stock approve 4 10.294 1.2739 10.529 1.2797 10.782 1.286 11.022 1.292 solid black
+edge approve ship 4 13.116 1.1124 13.664 0.99437 14.354 0.84603 14.925 0.72335 "green light" 14.09 1.1042 solid black
+edge ship customer 10 15.069 0.29817 14.287 0.16138 13.153 0 12.153 0 5 0 5 0 5 0 4.01 0 2.8926 0.14753 2.0886 0.28005 "2-day delivery" 9.3194 0.10417 solid black
+edge ship finance 4 17.015 0.48611 17.731 0.48611 18.709 0.48611 19.456 0.48611 "confirms revenue" 18.306 0.59028 solid black
+stop

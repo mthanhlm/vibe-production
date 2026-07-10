@@ -1,5 +1,5 @@
 ---
-description: Close the loop after a checked change — promote working agreements, record one learning, tick the roadmap, archive the plan, prepare the commit.
+description: Close the loop after a checked change — promote working agreements, record one learning, tick the roadmap, archive the plan, prepare the commit message (never commits).
 disable-model-invocation: true
 ---
 
