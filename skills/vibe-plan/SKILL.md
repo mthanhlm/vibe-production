@@ -2,6 +2,7 @@
 name: vibe-plan
 description: Plan a feature before code — interview the user, explore the codebase, write a 1–3 page human-readable plan with verifiable "Done means" criteria and a retry budget to .vibe/plan.md, get approval, render the bilingual HTML view.
 disable-model-invocation: true
+user-invocable: false
 ---
 
 # /vibe:plan — Plan (PDCA: Plan, with OKR-style expectations)

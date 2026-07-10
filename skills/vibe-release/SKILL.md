@@ -2,6 +2,7 @@
 name: vibe-release
 description: Maintainer-only release automation — validate the plugin, bump the semver, commit and push, then refresh the locally-installed copy through the marketplace (never --plugin-dir).
 disable-model-invocation: true
+user-invocable: false
 ---
 
 # /vibe:release — publish a new version to your own machine
