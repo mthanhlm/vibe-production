@@ -265,7 +265,8 @@ def main():
         print(__doc__.strip(), file=sys.stderr)
         return 1
     try:
-        spec = json.load(open(args[0], encoding="utf-8"))
+        with open(args[0], encoding="utf-8") as f:
+            spec = json.load(f)
     except (OSError, json.JSONDecodeError) as exc:
         die(f"cannot read spec: {exc}")
     n = build(spec, args[1])

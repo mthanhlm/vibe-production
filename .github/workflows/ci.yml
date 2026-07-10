@@ -1,0 +1,18 @@
+# Note: `claude plugin validate` is local-only (needs the Claude CLI); .vibe/verify.sh covers it.
+name: ci
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: python -m py_compile scripts/*.py
+      - run: bash -n bin/vibe-verify
+      - run: python -m unittest discover -s tests -v

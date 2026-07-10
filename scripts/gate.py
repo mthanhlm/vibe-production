@@ -12,6 +12,12 @@ import re
 import sys
 
 
+def _debug(context, exc):
+    # R-3: swallowed failures leave a breadcrumb when VIBE_DEBUG is set.
+    if os.environ.get("VIBE_DEBUG"):
+        print(f"vibe-debug[gate] {context}: {type(exc).__name__}: {exc}", file=sys.stderr)
+
+
 def allow():
     sys.exit(0)
 
@@ -21,13 +27,22 @@ def block(msg):
     sys.exit(2)
 
 
+def _str_field(payload, key):
+    # R-6: a non-string field is treated as absent.
+    value = payload.get(key)
+    return value if isinstance(value, str) else ""
+
+
 def main():
     try:
         payload = json.load(sys.stdin)
-    except Exception:
+        if not isinstance(payload, dict):
+            raise TypeError(f"payload is {type(payload).__name__}, expected object")
+    except Exception as exc:
+        _debug("parsing hook payload from stdin", exc)
         allow()  # malformed input must never brick the session
 
-    project = payload.get("cwd") or os.environ.get("CLAUDE_PROJECT_DIR") or os.getcwd()
+    project = _str_field(payload, "cwd") or os.environ.get("CLAUDE_PROJECT_DIR") or os.getcwd()
     project = os.path.realpath(project)
     vibe_dir = os.path.join(project, ".vibe")
 
@@ -42,15 +57,18 @@ def main():
         with open(os.path.join(vibe_dir, "config.json")) as f:
             if json.load(f).get("gate") == "off":
                 allow()
-    except Exception:
-        pass
+    except Exception as exc:
+        _debug("reading .vibe/config.json", exc)
 
     # Plan mode is read-only research plus the plan itself — never gate it.
-    if payload.get("permission_mode") == "plan":
+    if _str_field(payload, "permission_mode") == "plan":
         allow()
 
-    file_path = (payload.get("tool_input") or {}).get("file_path") or ""
-    if not file_path:
+    tool_input = payload.get("tool_input")
+    if not isinstance(tool_input, dict):
+        tool_input = {}  # R-6: non-object tool_input is treated as absent
+    file_path = tool_input.get("file_path")
+    if not isinstance(file_path, str) or not file_path:
         allow()
     real = os.path.realpath(file_path)
 
@@ -68,7 +86,7 @@ def main():
 
     # Gate token: .vibe/plan.md with frontmatter `status: approved`.
     plan_path = os.path.join(vibe_dir, "plan.md")
-    if os.path.isfile(plan_path):
+    if os.path.exists(plan_path):
         try:
             with open(plan_path, encoding="utf-8") as f:
                 head = f.read(2000)
@@ -79,7 +97,8 @@ def main():
                 "(frontmatter must say `status: approved`). Present the plan "
                 "to the user for approval, set the status, then retry."
             )
-        except Exception:
+        except Exception as exc:
+            _debug("reading .vibe/plan.md", exc)
             allow()
 
     block(

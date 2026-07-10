@@ -94,7 +94,8 @@ def main():
         return 1
     path = sys.argv[1]
     try:
-        text = open(path, encoding="utf-8").read()
+        with open(path, encoding="utf-8") as f:
+            text = f.read()
     except OSError as exc:
         print(f"cannot read {path}: {exc}", file=sys.stderr)
         return 1

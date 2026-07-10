@@ -81,18 +81,38 @@ PATTERNS = [
 ]
 
 
+def _debug(context, exc):
+    # R-3: swallowed failures leave a breadcrumb when VIBE_DEBUG is set.
+    if os.environ.get("VIBE_DEBUG"):
+        print(f"vibe-debug[nudge] {context}: {type(exc).__name__}: {exc}", file=sys.stderr)
+
+
+def _str_field(payload, key):
+    # R-6: a field of the wrong shape is treated as absent.
+    value = payload.get(key)
+    return value if isinstance(value, str) else ""
+
+
 def main():
     try:
         payload = json.load(sys.stdin)
-    except Exception:
+    except Exception as exc:
+        _debug("parsing stdin payload", exc)
+        return
+    if not isinstance(payload, dict):
         return
 
-    project = payload.get("cwd") or os.environ.get("CLAUDE_PROJECT_DIR") or os.getcwd()
+    project = _str_field(payload, "cwd") or os.environ.get("CLAUDE_PROJECT_DIR") or os.getcwd()
     # Advisory nudges are also opt-in per project, same switch as the gate.
     if not os.path.isdir(os.path.join(project, ".vibe")):
         return
 
-    file_path = (payload.get("tool_input") or {}).get("file_path") or ""
+    tool_input = payload.get("tool_input")
+    if not isinstance(tool_input, dict):
+        tool_input = {}
+    file_path = tool_input.get("file_path")
+    if not isinstance(file_path, str):
+        file_path = ""
     ext = os.path.splitext(file_path)[1].lower()
     if not file_path or not os.path.isfile(file_path):
         return
@@ -110,15 +130,21 @@ def main():
     try:
         with open(file_path, encoding="utf-8", errors="ignore") as f:
             content = f.read(200_000)
-    except Exception:
+    except Exception as exc:
+        _debug("reading edited file", exc)
         return
 
-    session = payload.get("session_id", "nosession")
-    seen_path = os.path.join(tempfile.gettempdir(), f"vibe-nudge-{session}.json")
+    # R-9: session_id feeds a filename, so strip anything that could steer
+    # the seen-file outside the temp dir (path traversal).
+    session = _str_field(payload, "session_id")
+    session = re.sub(r"[^\w-]", "", str(session)) or "nosession"
+    tmp_dir = os.path.realpath(tempfile.gettempdir())
+    seen_path = os.path.join(tmp_dir, f"vibe-nudge-{session}.json")
     try:
         with open(seen_path) as f:
             seen = set(json.load(f))
-    except Exception:
+    except Exception as exc:
+        _debug("reading seen-file", exc)
         seen = set()
 
     notes = []
@@ -132,11 +158,21 @@ def main():
     if not notes:
         return
 
+    tmp_path = None
     try:
-        with open(seen_path, "w") as f:
+        # R-4: temp file + os.replace so the seen-file is never half-written.
+        fd, tmp_path = tempfile.mkstemp(dir=tmp_dir, prefix="vibe-nudge-", suffix=".tmp")
+        with os.fdopen(fd, "w") as f:
             json.dump(sorted(seen), f)
-    except Exception:
-        pass
+        os.replace(tmp_path, seen_path)
+    except Exception as exc:
+        # A broken dedup store must never block the advisory note.
+        _debug("writing seen-file", exc)
+        if tmp_path is not None:
+            try:
+                os.unlink(tmp_path)
+            except Exception as cleanup_exc:
+                _debug("removing temp seen-file", cleanup_exc)
 
     context = (
         "VIBE STANDARDS NOTE (one-time, advisory — do not treat as a blocker):\n"
