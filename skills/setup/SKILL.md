@@ -12,9 +12,11 @@ project — say so to the user before you do it.
 ## Steps
 
 1. **Initialize state.** Create:
-   - `.vibe/config.json` → `{"gate": "on", "plan_language": "vi"}`
+   - `.vibe/config.json` →
+     `{"gate": "on", "plan_language": "vi", "auto_chain": "on"}`
      (ask the user for their preferred plan translation language; `vi`
-     unless they say otherwise; `"none"` disables translation)
+     unless they say otherwise; `"none"` disables translation.
+     `"auto_chain": "off"` keeps the Check→Act and Do→Check hops manual)
    - `.vibe/STATE.md` → `status: idle`, `next_action: /vibe:plan`
    - Everything in `.vibe/` (including the translated `plan.<lang>.md`) is
      meant to be committed and team-shared — no .gitignore entries needed.
@@ -45,4 +47,5 @@ project — say so to the user before you do it.
    (A plugin cannot set this itself; the settings write is their consent.)
    Skip silently if they decline.
 7. **Report.** Summarize in chat: top-3 roadmap risks, the verify commands,
-   and the loop: `/vibe:plan → code → /vibe:check → /vibe:act`.
+   and the loop: `/vibe:plan → code → /vibe:check → /vibe:act` (Check
+   auto-chains into Act on a full pass; `"auto_chain": "off"` disables).

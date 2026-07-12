@@ -1,6 +1,6 @@
 ---
 name: check
-description: Vibe Check phase — project checks (failures only), criterion-by-criterion review with evidence, retry budget respected. Invoked by the /vibe:check command.
+description: Vibe Check phase — project checks (failures only), criterion-by-criterion review with evidence, retry budget respected; on a full pass auto-chains into Act. Invoked by the /vibe:check command.
 user-invocable: false
 ---
 
@@ -41,8 +41,22 @@ Otherwise increment `check_attempts` in STATE.md now.
 One compact table in chat: each DM criterion → PASS/FAIL + one-line
 evidence. Then findings (if any), then uplift suggestions (if any).
 
-- All criteria PASS → update `.vibe/STATE.md`: `status: checked`,
-  `next_action: /vibe:act`. Tick the `- [x]` boxes in `.vibe/plan.md` and
-  mirror the ticks in `.vibe/plan.<lang>.md` if it exists.
+- Every criterion PASS (UNVERIFIABLE is not a PASS) → update
+  `.vibe/STATE.md`: `status: checked`, `next_action: /vibe:act`. Tick the
+  `- [x]` boxes in `.vibe/plan.md` and mirror the ticks in
+  `.vibe/plan.<lang>.md` if it exists. Then read `auto_chain` from
+  `.vibe/config.json` (absent file or key = `on`):
+  - `on` → say "All Done-means criteria pass — chaining into /vibe:act
+    (`"auto_chain": "off"` in .vibe/config.json disables this)" and invoke
+    the Skill tool with skill `vibe:act` now — don't wait to be asked.
+    STATE is already written, so if the session dies here a plain
+    /vibe:act resumes the loop. Uplift suggestions stay in the report;
+    act files them to `.vibe/ROADMAP.md` — don't pause to ask.
+  - `off` → end with the breadcrumb: run /vibe:act to close the loop.
+- Any UNVERIFIABLE (and no FAIL) → do not mark checked, do not chain — an
+  unverifiable criterion is a plan defect; report it and ask the user.
 - Any FAIL and budget remains → fix and re-run from stage 1.
 - Budget exhausted → stop and report, as above.
+
+`vibe:act` is only ever invoked from the every-criterion-PASS branch —
+never after a FAIL, an UNVERIFIABLE, or an exhausted budget.

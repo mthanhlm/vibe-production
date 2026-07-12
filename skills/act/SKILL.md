@@ -7,7 +7,8 @@ user-invocable: false
 # /vibe:act — Act (PDCA: Act)
 
 The step that makes the next loop better. Requires `.vibe/STATE.md` status
-`checked` (if not, suggest /vibe:check first). All writes go to
+`checked` (if `doing`, suggest /vibe:check first; if `done`, say the loop
+is already closed and stop). All writes go to
 git-committed files — never to plugin storage, never only to conversation.
 Act runs **fully automatic** — no AskUserQuestion, no mid-run approval
 gates. The one thing it never does is touch git: no staging, no commit,
@@ -44,6 +45,8 @@ maintainer-only automation and is outside this skill.)
    summary, list the files that belong in the feature's commit (rules,
    learning, and the feature changes) — nothing more. No commit message
    is written and no git command runs; committing is entirely the user's,
-   done manually.
+   done manually. STOP means stop: never invoke `vibe:plan` (or any other
+   skill) from here — the auto-chain terminates at Act; starting the next
+   feature is always the user's decision.
 
 Keep the whole Act pass short — it's bookkeeping, not a second review.

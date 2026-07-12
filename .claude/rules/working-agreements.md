@@ -23,3 +23,10 @@
 - WA-8 (2026-07-11): Retired working-agreement numbers are never reused or
   renumbered — delete the entry, survivors keep their numbers, so
   historical references stay valid (first applied removing WA-2/WA-3).
+- WA-9 (2026-07-12): The PDCA auto-chain is prompt-level only (Skill-tool
+  invocations, never hooks): plan's Do section self-invokes check when
+  implementation completes; check invokes act only from the
+  every-criterion-PASS branch (UNVERIFIABLE is not a pass); act terminates
+  the chain and never auto-invokes plan. `"auto_chain": "off"` in
+  .vibe/config.json restores the manual loop (absent = on); STATE.md is
+  written before each hop so an interrupted chain resumes manually.

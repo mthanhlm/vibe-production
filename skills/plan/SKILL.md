@@ -98,3 +98,8 @@ Arguments: $ARGUMENTS
 Don't re-read the whole plan every turn: section-map it
 (`rg -n '^#{1,3}' .vibe/plan.md`) and read only the active section.
 One feature per plan; finish to a commit before planning the next.
+
+When the implementation is complete and every Done-means criterion looks
+met, invoke the Skill tool with skill `vibe:check` yourself — don't wait
+to be asked. Only when `auto_chain` is `"off"` in `.vibe/config.json` do
+you end the turn instead and let the user run /vibe:check.

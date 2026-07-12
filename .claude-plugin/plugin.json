@@ -1,6 +1,6 @@
 {
   "name": "vibe",
-  "version": "0.5.0",
+  "version": "0.6.0",
   "description": "Lightweight production-standards and PDCA-loop layer for vibe coding: plan-before-code gate, citation-grade standards on demand, gradual tech-debt uplift, token-light by construction.",
   "author": {
     "name": "mthanhlm"

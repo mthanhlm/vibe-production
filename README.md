@@ -28,15 +28,23 @@ Fixes the three ways AI coding sessions go wrong:
                      plan_language is set.
   (code)     Do    — normal Claude coding. The plan gate blocks writes
                      without an approved plan; deviation nudges fire once
-                     per pattern; standards load only when relevant.
+                     per pattern; standards load only when relevant. When
+                     in-session work is done, the model runs Check itself.
 /vibe:check  Check — vibe-verify (failures only) → standards-reviewer
                      verifies each criterion with evidence → uplift-scout
                      offers ≤3 optional improvements. Stops at the retry
-                     budget instead of thrashing.
+                     budget instead of thrashing. On a full pass, chains
+                     straight into Act — no command needed.
 /vibe:act    Act   — promote working agreements, record one learning, tick
                      the roadmap, archive the plan (closes the gate).
                      Git stays fully manual — you commit yourself.
 ```
+
+The loop closes itself: a fully passing Check invokes Act automatically.
+Failures never chain — the retry budget still governs fix-and-retry and an
+exhausted budget still stops and asks you — and Act always terminates the
+chain; starting the next feature is yours. Restore the fully manual loop
+with `"auto_chain": "off"` in `.vibe/config.json`.
 
 `/vibe:plan quick` stamps a one-line plan for one-sentence diffs — no ceremony.
 `/vibe:setup` onboards a repo: discovers house patterns, writes the gap

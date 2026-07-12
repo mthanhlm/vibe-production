@@ -1,5 +1,5 @@
 ---
-description: Verify the current work against the plan — project checks (failures only), standards-reviewer verifies each "Done means" criterion with evidence, up to 3 uplift suggestions. Respects the retry budget.
+description: Verify the current work against the plan — project checks (failures only), standards-reviewer verifies each "Done means" criterion with evidence, up to 3 uplift suggestions. Respects the retry budget. Auto-chains into Act when every criterion passes.
 disable-model-invocation: true
 ---
 
