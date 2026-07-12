@@ -15,6 +15,7 @@ SCRIPTS = os.path.join(REPO, "scripts")
 # Session variables that must never leak from the developer's environment
 # into a test subprocess.
 ISOLATE = ("VIBE_GATE", "VIBE_GIT_GUARD", "VIBE_GIT", "VIBE_DEBUG",
+           "VIBE_HISTORY_DIR", "VIBE_HISTORY_BUDGET_BYTES",
            "CLAUDE_PROJECT_DIR", "TMPDIR")
 
 

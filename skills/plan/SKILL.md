@@ -102,4 +102,7 @@ One feature per plan; finish to a commit before planning the next.
 When the implementation is complete and every Done-means criterion looks
 met, invoke the Skill tool with skill `vibe:check` yourself — don't wait
 to be asked. Only when `auto_chain` is `"off"` in `.vibe/config.json` do
-you end the turn instead and let the user run /vibe:check.
+you end the turn instead and let the user run /vibe:check. Any other
+value (including legacy `"on"`/`"full"`) behaves the same as absent:
+Do→Check is the only automatic hop — check then stops for the user's own
+test, and no mode auto-runs act.

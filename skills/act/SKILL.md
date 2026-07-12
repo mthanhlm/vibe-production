@@ -1,14 +1,19 @@
 ---
 name: act
-description: Vibe Act phase — promote working agreements, record one learning, tick the roadmap, archive the plan (never touches git). Invoked by the /vibe:act command.
+description: Vibe Act phase — promote working agreements, record one learning, tick the roadmap, archive the plan (never touches git); runs only when the user explicitly asks, after their own test. Invoked by the /vibe:act command.
 user-invocable: false
 ---
 
 # /vibe:act — Act (PDCA: Act)
 
-The step that makes the next loop better. Requires `.vibe/STATE.md` status
-`checked` (if `doing`, suggest /vibe:check first; if `done`, say the loop
-is already closed and stop). All writes go to
+The step that makes the next loop better. Two prerequisites, both required:
+`.vibe/STATE.md` status `checked` (if `doing`, suggest /vibe:check first;
+if `done`, say the loop is already closed and stop), AND an explicit user
+request — the user typed /vibe:act or asked for it in their own words
+after testing the feature themselves. Act is never model-initiated: if the
+user has not explicitly asked for act this turn, do not run it — the
+human confirmation between Check and Act is the point of the loop. All
+writes go to
 git-committed files — never to plugin storage, never only to conversation.
 Act runs **fully automatic** — no AskUserQuestion, no mid-run approval
 gates. The one thing it never does is touch git: no staging, no commit,
@@ -46,7 +51,7 @@ maintainer-only automation and is outside this skill.)
    learning, and the feature changes) — nothing more. No commit message
    is written and no git command runs; committing is entirely the user's,
    done manually. STOP means stop: never invoke `vibe:plan` (or any other
-   skill) from here — the auto-chain terminates at Act; starting the next
-   feature is always the user's decision.
+   skill) from here — Act is always the loop's final, user-triggered step;
+   starting the next feature is always the user's decision.
 
 Keep the whole Act pass short — it's bookkeeping, not a second review.

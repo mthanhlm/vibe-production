@@ -47,5 +47,6 @@ project — say so to the user before you do it.
    (A plugin cannot set this itself; the settings write is their consent.)
    Skip silently if they decline.
 7. **Report.** Summarize in chat: top-3 roadmap risks, the verify commands,
-   and the loop: `/vibe:plan → code → /vibe:check → /vibe:act` (Check
-   auto-chains into Act on a full pass; `"auto_chain": "off"` disables).
+   and the loop: `/vibe:plan → code → /vibe:check → you test → /vibe:act`
+   (Check stops for the user's own test; act is theirs to trigger;
+   `"auto_chain": "off"` disables the Do→Check hop).

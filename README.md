@@ -31,20 +31,29 @@ Fixes the three ways AI coding sessions go wrong:
                      per pattern; standards load only when relevant. When
                      in-session work is done, the model runs Check itself.
 /vibe:check  Check — vibe-verify (failures only) → standards-reviewer
-                     verifies each criterion with evidence → uplift-scout
-                     offers ≤3 optional improvements. Stops at the retry
-                     budget instead of thrashing. On a full pass, chains
-                     straight into Act — no command needed.
-/vibe:act    Act   — promote working agreements, record one learning, tick
-                     the roadmap, archive the plan (closes the gate).
-                     Git stays fully manual — you commit yourself.
+                     verifies each criterion with evidence → live
+                     end-to-end run of the real feature (Playwright-style
+                     for web UIs, real commands for CLIs, live payloads
+                     for hooks) → uplift-scout offers ≤3 optional
+                     improvements. Then it STOPS and hands you a short
+                     test-it-yourself list. Stops at the retry budget
+                     instead of thrashing.
+ (you test)  ————  — you try the feature yourself and confirm. Feedback
+                     on the same objective → fixed and re-checked in the
+                     same loop; feedback that changes scope → new plan.
+/vibe:act    Act   — yours to trigger once it looks good: promote working
+                     agreements, record one learning, tick the roadmap,
+                     archive the plan (closes the gate). Always the last
+                     step. Git stays fully manual — you commit yourself.
 ```
 
-The loop closes itself: a fully passing Check invokes Act automatically.
-Failures never chain — the retry budget still governs fix-and-retry and an
-exhausted budget still stops and asks you — and Act always terminates the
-chain; starting the next feature is yours. Restore the fully manual loop
-with `"auto_chain": "off"` in `.vibe/config.json`.
+The loop keeps a human in it: Check tests everything a machine can test —
+deterministic checks, standards review, then actually driving the feature
+end-to-end — and then stops so the final confirmation is yours. Act never
+runs on the model's initiative. The only automatic hop is Do→Check;
+disable even that with `"auto_chain": "off"` in `.vibe/config.json` (any
+other value, including legacy `"on"`/`"full"`, behaves like the default —
+no value auto-runs Act).
 
 `/vibe:plan quick` stamps a one-line plan for one-sentence diffs — no ceremony.
 `/vibe:setup` onboards a repo: discovers house patterns, writes the gap
@@ -107,7 +116,7 @@ version up after `/reload-plugins`.
 | `production-standards` + 5 reference files | skill (model-invocable) | ~1 description line |
 | `/vibe:plan` `/vibe:check` `/vibe:act` `/vibe:setup` `/vibe:release` | thin commands — each natively invokes its skill via the Skill tool | 0 |
 | the 5 workflow skills behind those commands (hidden from the picker) | skills (model-invocable) | ~1 short description line each |
-| plan gate, git safeguard, deviation nudge, plan stamp | hooks (PreToolUse / PostToolUse) | 0 |
+| plan gate, git safeguard, deviation nudge, plan stamp, chat-history archive | hooks (PreToolUse / PostToolUse / SessionStart / SessionEnd) | 0 |
 | `standards-reviewer` (sonnet), `uplift-scout` (haiku) | agents, read-only | 0 until invoked |
 | `vibe-verify` | bin CLI | 0 |
 
