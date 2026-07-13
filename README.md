@@ -32,8 +32,9 @@ Fixes the three ways AI coding sessions go wrong:
                      in-session work is done, the model runs Check itself.
 /vibe:check  Check — vibe-verify (failures only) → standards-reviewer
                      verifies each criterion with evidence → live
-                     end-to-end run of the real feature (Playwright-style
-                     for web UIs, real commands for CLIs, live payloads
+                     end-to-end run of the real feature (consent-gated
+                     Playwright driving your own Chrome for web UIs, real
+                     commands for CLIs, live payloads
                      for hooks) → uplift-scout offers ≤3 optional
                      improvements. Then it STOPS and hands you a short
                      test-it-yourself list. Stops at the retry budget
@@ -118,7 +119,7 @@ version up after `/reload-plugins`.
 | the 5 workflow skills behind those commands (hidden from the picker) | skills (model-invocable) | ~1 short description line each |
 | plan gate, git safeguard, deviation nudge, plan stamp, chat-history archive | hooks (PreToolUse / PostToolUse / SessionStart / SessionEnd) | 0 |
 | `standards-reviewer` (sonnet), `uplift-scout` (haiku) | agents, read-only | 0 until invoked |
-| `vibe-verify` | bin CLI | 0 |
+| `vibe-verify`, `vibe-e2e-setup` | bin CLIs | 0 |
 
 State lives in **your repo, committed**: `.vibe/plan.md` (the gate token),
 `.vibe/STATE.md` (any fresh session knows the next command), `.vibe/ROADMAP.md`

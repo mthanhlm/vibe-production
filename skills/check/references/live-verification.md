@@ -28,11 +28,14 @@ default**. Work down this ladder and stop at the first rung that works.
   `--dump-dom`, and when the dump looks empty treat the screenshot as the
   decisive evidence.
 
-## 3. Heavier tools — only with the user's OK
+## 3. Real browser automation — consent-gated, no browser download
 
-- Playwright and friends download browsers (hundreds of MB). Never install
-  them just for a check without asking the user first.
-- If a real browser is required and none is available: mark that criterion
+- A web UI needing real interaction (clicks, forms, multi-step flows)
+  beyond rung 2's flags → read `references/playwright-cli.md` (bundled):
+  the consent-gated Playwright toolkit — one global npm package driving
+  the user's own Chrome; a browser is never downloaded on the default
+  path, and nothing installs without the user's OK.
+- If the user declines, or no drivable browser exists: mark that criterion
   **UNVERIFIABLE-live** in the report and give the user the exact manual
   steps to click through — the user becomes the driver. Honest beats
   silent skipping.

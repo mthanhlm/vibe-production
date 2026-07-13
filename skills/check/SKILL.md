@@ -38,8 +38,10 @@ Otherwise increment `check_attempts` in STATE.md now.
    `references/live-verification.md` (bundled with this skill); it gives
    the tool ladder — reuse the repo's own e2e tooling, else no-install
    built-ins (real commands, live hook payloads, curl, headless Chrome
-   flags), and never install heavy tools like Playwright without the
-   user's OK — plus Docker drivers, stuck-run timeout discipline, and how
+   flags), else the consent-gated Playwright recipe
+   (`references/playwright-cli.md` — drives the user's own Chrome, never
+   downloads a browser, installs nothing without their OK) — plus Docker
+   drivers, stuck-run timeout discipline, and how
    to slice complex features. Observe actual behavior and keep the
    evidence (output, exit codes, screenshots). If live driving is truly
    impossible here, mark the criterion UNVERIFIABLE-live and hand the user

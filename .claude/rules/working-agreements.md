@@ -47,3 +47,12 @@
   lives in a bundled `references/` file loaded on demand — SKILL.md
   always-on cost stays flat, and instructions must be executable as
   written (verified by fresh agents given only the files).
+- WA-14 (2026-07-13): Team-shared `.vibe/config.json` keys gate features
+  only; machine-local consent for any install is the artifact's presence
+  on that machine's disk (e.g. `~/.claude/vibe-e2e`) — a committed key
+  never licenses an install on a colleague's machine (WA-12 corollary,
+  first applied to the Playwright e2e toolkit).
+- WA-15 (2026-07-13): `bin/` CLIs print machine-parseable output only —
+  one decision line (`CAPABILITY: …`-style) on stdout, failures on
+  stderr; advisory prose lives in skill/reference text, never in
+  terminal output (user correction removing the WSL NOTE line).

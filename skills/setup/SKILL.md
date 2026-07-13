@@ -42,11 +42,16 @@ project — say so to the user before you do it.
    commands, one per line, `set -e` at top. Confirm the commands with the
    user if ambiguous. Make it executable. (`vibe-verify` will use it and
    show only failures.)
-6. **Offer plan-mode default.** Ask the user: add
+6. **Offer browser E2E (web projects).** Project has a web UI and no e2e
+   tooling? Offer the consent-gated toolkit: run `vibe-e2e-setup` (one
+   global npm package into `~/.claude/vibe-e2e` — never a browser
+   download) and record `"e2e": "playwright-chrome"` in
+   `.vibe/config.json`. Skip silently on decline or when there's no web UI.
+7. **Offer plan-mode default.** Ask the user: add
    `{"permissions": {"defaultMode": "plan"}}` to `.claude/settings.json`?
    (A plugin cannot set this itself; the settings write is their consent.)
    Skip silently if they decline.
-7. **Report.** Summarize in chat: top-3 roadmap risks, the verify commands,
+8. **Report.** Summarize in chat: top-3 roadmap risks, the verify commands,
    and the loop: `/vibe:plan → code → /vibe:check → you test → /vibe:act`
    (Check stops for the user's own test; act is theirs to trigger;
    `"auto_chain": "off"` disables the Do→Check hop).

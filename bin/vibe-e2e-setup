@@ -1,0 +1,82 @@
+#!/usr/bin/env bash
+# vibe-e2e-setup — install/probe the global Playwright toolkit for live
+# browser verification. Installs the npm package ONLY (never a browser:
+# PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD is forced); `channel:` at run time
+# drives the Chrome/Edge/Chromium the user already has. Idempotent and
+# non-interactive: consent is conversational and belongs to the skills
+# (WA-12) — this script never prompts and never writes project config.
+#
+#   VIBE_E2E_DIR          toolkit home (default ~/.claude/vibe-e2e)
+#   VIBE_E2E_PROBE_PATHS  colon-separated browser candidates (tests/CI)
+#   --headless-shell      also install chromium-headless-shell (~100 MB
+#                         download) into $VIBE_E2E_DIR/browsers — the
+#                         consent-gated fallback when no system browser
+#                         exists. Callers must export
+#                         PLAYWRIGHT_BROWSERS_PATH=$VIBE_E2E_DIR/browsers
+#                         at run time too, or the runner looks in ~/.cache.
+#
+# Output: exactly one machine-parseable line
+#   CAPABILITY: chrome|chromium|msedge|headless-shell|none
+# (Windows-side browsers under /mnt/c are deliberately NOT probed: CDP
+# across the WSL NAT boundary was proven unreachable, so WSL boxes go
+# straight to `none` → the recipe offers --headless-shell.)
+set -u
+
+E2E_DIR="${VIBE_E2E_DIR:-$HOME/.claude/vibe-e2e}"
+
+WANT_SHELL=0
+for arg in "$@"; do
+  case "$arg" in
+    --headless-shell) WANT_SHELL=1 ;;
+    *) echo "vibe-e2e-setup: unknown argument: $arg (only --headless-shell is supported)" >&2; exit 2 ;;
+  esac
+done
+
+command -v node >/dev/null 2>&1 || {
+  echo "vibe-e2e-setup: node not found on PATH — install Node.js (https://nodejs.org), then re-run." >&2; exit 1; }
+command -v npm >/dev/null 2>&1 || {
+  echo "vibe-e2e-setup: npm not found on PATH — install Node.js/npm, then re-run." >&2; exit 1; }
+
+mkdir -p "$E2E_DIR" "$E2E_DIR/runs" || {
+  echo "vibe-e2e-setup: could not create $E2E_DIR — check permissions/disk." >&2; exit 1; }
+
+if [ ! -d "$E2E_DIR/node_modules/playwright" ]; then
+  [ -f "$E2E_DIR/package.json" ] || printf '{"name":"vibe-e2e","private":true}\n' > "$E2E_DIR/package.json"
+  ( cd "$E2E_DIR" &&
+    PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1 timeout 300 npm install --no-fund --no-audit --loglevel=error 'playwright@^1' ) || {
+    echo "vibe-e2e-setup: npm install failed in $E2E_DIR (offline? registry blocked?) — fix and re-run." >&2; exit 1; }
+fi
+
+( cd "$E2E_DIR" && node -e "require('playwright/test')" ) 2>/dev/null || {
+  echo "vibe-e2e-setup: playwright/test does not resolve in $E2E_DIR — delete the dir and re-run." >&2; exit 1; }
+
+if [ "$WANT_SHELL" -eq 1 ]; then
+  PLAYWRIGHT_BROWSERS_PATH="$E2E_DIR/browsers" \
+    timeout 600 "$E2E_DIR/node_modules/.bin/playwright" install chromium-headless-shell || {
+    echo "vibe-e2e-setup: headless-shell install failed." >&2; exit 1; }
+fi
+
+# Probe drivable browsers. Rank: chrome > msedge > chromium > headless-shell.
+CANDIDATES=()
+if [ -n "${VIBE_E2E_PROBE_PATHS:-}" ]; then
+  IFS=':' read -r -a CANDIDATES <<< "$VIBE_E2E_PROBE_PATHS"
+else
+  for name in google-chrome google-chrome-stable microsoft-edge microsoft-edge-stable chromium chromium-browser; do
+    p="$(command -v "$name" 2>/dev/null)" && CANDIDATES+=("$p")
+  done
+fi
+
+RANK=0; CAP="none"
+for p in ${CANDIDATES[@]+"${CANDIDATES[@]}"}; do
+  [ -x "$p" ] || continue
+  case "${p##*/}" in
+    google-chrome*|chrome)          [ "$RANK" -lt 3 ] && { RANK=3; CAP="chrome"; } ;;
+    microsoft-edge*|msedge)         [ "$RANK" -lt 2 ] && { RANK=2; CAP="msedge"; } ;;
+    chromium*)                      [ "$RANK" -lt 1 ] && { RANK=1; CAP="chromium"; } ;;
+  esac
+done
+if [ "$CAP" = "none" ] && compgen -G "$E2E_DIR/browsers/chromium_headless_shell-*" >/dev/null 2>&1; then
+  CAP="headless-shell"
+fi
+
+echo "CAPABILITY: $CAP"
