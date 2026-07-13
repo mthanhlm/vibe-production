@@ -4,15 +4,15 @@
   Skill-tool invocation of `vibe:<name>`; skills stay
   `user-invocable: false` and must NOT set `disable-model-invocation`
   (the Skill tool can only call model-invocable skills).
-- WA-4 (2026-07-10): Hook scripts are tested subprocess-level via
-  `tests/hookrunner.py` (JSON on stdin; assert exit code/stderr/stdout) —
-  never imported as modules; stdlib `unittest` only, no pytest.
+- WA-4 (2026-07-10, amended 2026-07-13: absorbs WA-6, WA-10): Hook-script
+  craft — test subprocess-level via `tests/hookrunner.py` (JSON on stdin;
+  assert exit code/stderr/stdout; stdlib `unittest` only, never imported
+  as modules); every except-swallow calls `_debug(context, exc)` (no naked
+  `except: pass`); every text-mode `open()` passes `encoding="utf-8"`
+  (binary streams exempt).
 - WA-5 (2026-07-10): Every `git push` variant — including
   `--force-with-lease` — requires `VIBE_GIT=allow`; force-with-lease is
   exempt only from the destructive classification, never from approval.
-- WA-6 (2026-07-10): Every except-swallow in hook scripts calls
-  `_debug(context, exc)` so `VIBE_DEBUG=1` leaves evidence; no naked
-  `except: pass`.
 - WA-7 (2026-07-11, amended 2026-07-11): Never run `git add`/`git commit`/
   `git push` unless the user explicitly asks in their own words —
   `/vibe:act` archives the plan and updates state, writes no commit
@@ -20,11 +20,7 @@
   is the maintainer's own automation, exempt. Act is otherwise fully
   automatic (no mid-run questions).
 - WA-8 (2026-07-11): Retired working-agreement numbers are never reused or
-  renumbered — delete the entry, survivors keep their numbers, so
-  historical references stay valid (first applied removing WA-2/WA-3).
-- WA-10 (2026-07-12): Every text-mode `open()` in hook scripts passes
-  `encoding="utf-8"` (binary streams exempt) — a platform-default encoding
-  must never silently disable a switch or corrupt state.
+  renumbered — delete the entry; survivors keep their numbers.
 - WA-11 (2026-07-12): The chat-history archive (`~/.claude/vibe-history`)
   is append-forever; `index.jsonl` is a rebuildable cache — append-only
   writes, readers dedup latest-wins by `session_id`, never rewritten in
@@ -36,24 +32,21 @@
   invokes act); act runs only when the user explicitly asks and is always
   last. `"auto_chain": "off"` disables the hop; every other value (incl.
   legacy "on"/"full") is the default.
-- WA-12 (2026-07-13): Live verification installs nothing without the
-  user's consent; when a criterion can't be driven, it is reported
+- WA-12 (2026-07-13, amended 2026-07-13: absorbs WA-14): Nothing installs
+  without the user's consent — a team-shared `.vibe/config.json` key gates
+  the feature only; machine-local consent is the artifact's presence on
+  that machine's disk (a committed key never licenses an install
+  elsewhere). A criterion that can't be driven live is reported
   UNVERIFIABLE-live with exact manual steps — never silently skipped.
 - WA-13 (2026-07-13): Operational skill guidance longer than a few lines
   lives in a bundled `references/` file loaded on demand — SKILL.md
   always-on cost stays flat, and instructions must be executable as
   written (verified by fresh agents given only the files).
-- WA-14 (2026-07-13): Team-shared `.vibe/config.json` keys gate features
-  only; machine-local consent for any install is the artifact's presence
-  on that machine's disk (e.g. `~/.claude/vibe-e2e`) — a committed key
-  never licenses an install on a colleague's machine (WA-12 corollary,
-  first applied to the Playwright e2e toolkit).
 - WA-15 (2026-07-13): `bin/` CLIs print machine-parseable output only —
-  one decision line (`CAPABILITY: …`-style) on stdout, failures on
-  stderr; advisory prose lives in skill/reference text, never in
-  terminal output (user correction removing the WSL NOTE line).
-- WA-16 (2026-07-13): A skill emitting a visual artifact
-  (deck/diagram/image) verifies it two ways — a machine validator with
-  cited rule IDs AND a render-to-image review the model looks at
-  (structural pass alone is never "done") — and composes it from a tested
-  shipped library, never raw one-off authoring (first: /vibe:deck).
+  one decision line on stdout, failures on stderr; advisory prose lives in
+  skill/reference text, never in terminal output.
+- WA-17 (2026-07-14): The plugin's scope is the PDCA loop and production
+  standards only — no artifact-generating skills (decks, diagrams, media).
+  A new skill earns its place only by making the loop understand the
+  codebase or the user's intent better (maintainer decision removing the
+  visual suite after two verified builds).

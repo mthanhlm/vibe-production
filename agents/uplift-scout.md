@@ -18,9 +18,10 @@ the change itself.
 
 ## What qualifies
 Only violations of production-standards MUST rules (S-*, E-*, API-*, T-*,
-D-*) with real production risk: swallowed exceptions, injection-prone SQL,
-missing authz checks, unbounded queries, missing timeouts, credential
-handling. Read `.vibe/ROADMAP.md` if present — prefer confirming/refining an
+D-*, PD-*, MEM-*, TD-*, EV-*) with real production risk: swallowed
+exceptions, injection-prone SQL, missing authz checks, unbounded queries,
+missing timeouts, credential handling, prompt-injection surfaces,
+unbounded tool results, ungated model regressions. Read `.vibe/ROADMAP.md` if present — prefer confirming/refining an
 existing roadmap item over inventing a new one.
 
 ## What never qualifies

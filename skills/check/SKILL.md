@@ -1,94 +1,69 @@
 ---
 name: check
-description: Vibe Check phase — project checks (failures only), criterion-by-criterion review with evidence, live end-to-end verification, retry budget respected; always stops for the user's own test before Act. Invoked by the /vibe:check command.
+description: Vibe Check phase — deterministic checks (failures only), criterion-by-criterion review with evidence, live end-to-end verification, all within the retry budget; always stops for the user's own test before Act. Invoked by the /vibe:check command.
 user-invocable: false
 ---
 
 # /vibe:check — Check (PDCA: Check)
 
-Verify outcomes against `.vibe/plan.md`'s "Done means" list. Outcome-based
-("does the check pass"), never step-based ("did it use try-catch").
-Check's job is to test everything a machine can test — the loop still ends
-with the user's own hands: Check never invokes act.
+Verify outcomes against `.vibe/plan.md`'s "Done means" list — outcome-based
+("does it work"), never step-based ("did it use try-catch"). How you verify
+each stage is your judgment; the invariants below are not.
 
-## Retry budget — read this first
+## Retry budget — the circuit breaker (evaluate on EVERY entry, before any fix)
 
 Read `retry_budget` from `.vibe/plan.md` frontmatter and `check_attempts`
 from `.vibe/STATE.md`. If `check_attempts >= retry_budget`: **STOP. Do not
-fix anything.** Report what passes, what fails, and your best diagnosis, and
-ask the user how to proceed (split the task, change approach, raise budget).
-Burning tokens on a thrashing loop is the failure mode this gate exists for.
-Otherwise increment `check_attempts` in STATE.md now.
+fix anything.** Report what passes, what fails, and your best diagnosis,
+and ask the user how to proceed (split the task, change approach, raise
+budget). Burning tokens on a thrashing loop is the failure mode this gate
+exists for. Otherwise increment `check_attempts` in STATE.md now.
 
-## Stages (cheap first)
+## Stages (cheap first — each states the outcome it must produce)
 
-1. **Deterministic checks.** Run `vibe-verify` (bundled; uses
-   `.vibe/verify.sh` when present, autodetects otherwise). It prints only
-   failure lines. If it fails: fix, re-run — that's one loop inside this
-   same attempt; don't launch the reviewer until it's green or you're
-   blocked.
-2. **Standards review.** Launch the `standards-reviewer` agent (subagent —
-   keeps the analysis out of this context). Give it: the "Done means" list
-   verbatim, and the changed files (`git diff --name-only` + `git status
-   --short`). It returns PASS/FAIL/UNVERIFIABLE per criterion with
-   file:line evidence, plus at most 10 findings at ≥80 confidence.
-3. **Live verification (only if stage 2 has no FAILs).** Drive the real
-   feature end-to-end, per the plan's Verification section — tests passing
-   is not the same as the feature working. First read
-   `references/live-verification.md` (bundled with this skill); it gives
-   the tool ladder — reuse the repo's own e2e tooling, else no-install
-   built-ins (real commands, live hook payloads, curl, headless Chrome
-   flags), else the consent-gated Playwright recipe
-   (`references/playwright-cli.md` — drives the user's own Chrome, never
-   downloads a browser, installs nothing without their OK) — plus Docker
-   drivers, stuck-run timeout discipline, and how
-   to slice complex features. Observe actual behavior and keep the
-   evidence (output, exit codes, screenshots). If live driving is truly
-   impossible here, mark the criterion UNVERIFIABLE-live and hand the user
-   exact manual steps instead of skipping silently. A criterion whose live
-   run contradicts its test evidence is a FAIL.
-4. **Uplift scout (only if stages 2–3 have no FAILs).** Launch
-   `uplift-scout` with the changed file list. It returns at most 3 advisory
-   improvement opportunities near the touched code. Present them as
-   optional; if the user declines, add them to `.vibe/ROADMAP.md` instead.
-   Never block on them.
+1. **Deterministic.** Outcome: `vibe-verify` green (bundled; it prints
+   failure lines only). Fix-and-rerun inside this same attempt.
+2. **Standards review.** Outcome: PASS/FAIL/UNVERIFIABLE per Done-means
+   criterion with file:line evidence — launch the `standards-reviewer`
+   subagent with the criteria verbatim plus the changed files.
+3. **Live verification** (when stage 2 has no FAILs). Outcome: the real
+   feature observed working, per the plan's Verification section, with
+   evidence kept (output, exit codes, screenshots). Read
+   `references/live-verification.md` now for the tool ladder. Invariants:
+   nothing installs without the user's consent; a criterion you can't
+   drive is reported UNVERIFIABLE-live with exact manual steps, never
+   silently skipped (WA-12); a live run that contradicts test evidence is
+   a FAIL.
+4. **Uplift scout** (when nothing FAILed). Outcome: ≤3 advisory
+   suggestions via `uplift-scout` on the changed files; declined ones go
+   to `.vibe/ROADMAP.md`. Never block on them.
 
-## Report
+## Report — one compact table, then exactly one branch
 
-One compact table in chat: each DM criterion → PASS/FAIL + one-line
-evidence (from tests AND the live run). Then findings (if any), then uplift
-suggestions (if any).
+Each Done-means criterion → verdict + one-line evidence (from tests AND
+the live run), then findings and uplift suggestions if any.
 
-- Every criterion PASS (UNVERIFIABLE is not a PASS) → update
-  `.vibe/STATE.md`: `status: checked`, `next_action: user confirm →
-  /vibe:act`. Tick the `- [x]` boxes in `.vibe/plan.md` and mirror the
-  ticks in `.vibe/plan.<lang>.md` if it exists. Then **stop — always.**
-  End the report with:
-  - **Test it yourself:** 2–3 concrete actions derived from the plan's
-    Verification section (exact commands to run, URL to open, thing to
-    click) and what the user should see.
+- Every criterion PASS (UNVERIFIABLE is not a PASS) → `.vibe/STATE.md`:
+  `status: checked`, `next_action: user confirm → /vibe:act`; tick the
+  `- [x]` boxes in `.vibe/plan.md` and mirror `.vibe/plan.<lang>.md` if it
+  exists. Then **stop — always.** End with:
+  - **Test it yourself:** 2–3 concrete actions from the plan's
+    Verification section and what the user should see.
   - The breadcrumb: "When it looks good to you, run /vibe:act (or just
     say so) to close the loop."
-  The user's manual confirmation is the real end of Check; act is theirs
-  to trigger. `auto_chain` has no value that changes this — `"off"`
-  disables the Do→Check hop, and legacy values (`"on"`, `"full"`,
-  `"check"`) all behave like the default: check runs, then stops here.
-- Any UNVERIFIABLE (and no FAIL) → do not mark checked — an unverifiable
-  criterion is a plan defect; report it and ask the user.
-- Any FAIL and budget remains → fix, then re-enter this skill from the
-  top: the retry-budget gate runs on every re-entry — stop if exhausted,
-  otherwise increment `check_attempts` — before any further fixing.
-- Budget exhausted → stop and report, as above.
+- Any UNVERIFIABLE — plain or -live — with no FAIL → not checked: an
+  unverifiable criterion is a plan defect; report it and ask the user.
+- Any FAIL with budget remaining → fix, then re-enter this skill from the
+  top (the budget gate above runs before any further fixing).
+- Budget exhausted → the gate above already stopped you.
 
-## After the stop — user feedback
+## Feedback after the stop
 
-- Feedback on the **same objective** ("the button is wrong", "the index
-  misses X") → this same loop: re-enter this skill from the top. The
-  budget gate is evaluated BEFORE any fix — an exhausted budget stops
-  and asks even when the fix looks easy.
-- Feedback that **changes scope** (new capability, different behavior than
-  the plan's Objective) → suggest a fresh /vibe:plan; don't stretch this
-  plan around it.
+Same objective → the pass is void: set `.vibe/STATE.md` back to
+`status: doing`, then re-enter this skill from the top; the budget gate
+runs before any fix, even an easy-looking one. Changed scope (new
+capability, different behavior than the plan's Objective) → suggest a
+fresh /vibe:plan; don't stretch this plan around it.
 
-`vibe:act` is never invoked from check. It runs only when the user
-explicitly asks — by typing /vibe:act or saying so in their own words.
+`vibe:act` is never invoked from check — it runs only when the user
+explicitly asks (see the act skill).

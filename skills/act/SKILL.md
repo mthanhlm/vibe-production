@@ -6,22 +6,23 @@ user-invocable: false
 
 # /vibe:act — Act (PDCA: Act)
 
-The step that makes the next loop better. Two prerequisites, both required:
-`.vibe/STATE.md` status `checked` (if `doing`, suggest /vibe:check first;
-if `done`, say the loop is already closed and stop), AND an explicit user
-request — the user typed /vibe:act or asked for it in their own words
-after testing the feature themselves. Act is never model-initiated: if the
-user has not explicitly asked for act this turn, do not run it — the
-human confirmation between Check and Act is the point of the loop. All
-writes go to
-git-committed files — never to plugin storage, never only to conversation.
-Act runs **fully automatic** — no AskUserQuestion, no mid-run approval
-gates. The one thing it never does is touch git: no staging, no commit,
-and no commit-message file — the user handles all of git manually (their
-commit process has rules that require it). Only if the user separately
-and explicitly asks for git actions in their own words may git commands
-run, prefixed with `VIBE_GIT=allow `. (`/vibe:release` has its own
-maintainer-only automation and is outside this skill.)
+The step that makes the next loop better. Three preconditions, then run
+start-to-finish:
+
+- **Gate.** Run only when BOTH hold: `.vibe/STATE.md` says
+  `status: checked` (`doing` → suggest /vibe:check first; `done` → the
+  loop is already closed, stop) AND the user explicitly asked for act this
+  turn — typed /vibe:act or said so in their own words after testing the
+  feature themselves. Act is never model-initiated; the human confirmation
+  between Check and Act is the point of the loop.
+- **Mode.** Fully automatic once started — no AskUserQuestion, no mid-run
+  approval gates. Every write goes to git-committed files, never to plugin
+  storage or only to conversation.
+- **Git.** Act never touches git: no staging, no commit, no commit-message
+  file — committing is entirely the user's (their commit process has rules
+  that require it). Only if they separately and explicitly ask for git
+  actions may git commands run, prefixed `VIBE_GIT=allow `.
+  (`/vibe:release` is separate maintainer automation.)
 
 ## Steps
 
@@ -50,8 +51,7 @@ maintainer-only automation and is outside this skill.)
    summary, list the files that belong in the feature's commit (rules,
    learning, and the feature changes) — nothing more. No commit message
    is written and no git command runs; committing is entirely the user's,
-   done manually. STOP means stop: never invoke `vibe:plan` (or any other
-   skill) from here — Act is always the loop's final, user-triggered step;
-   starting the next feature is always the user's decision.
+   done manually. Never invoke another skill from here — starting the
+   next feature is the user's decision.
 
 Keep the whole Act pass short — it's bookkeeping, not a second review.

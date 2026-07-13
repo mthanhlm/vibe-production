@@ -1,5 +1,5 @@
 ---
-description: Verify the current work against the plan — project checks (failures only), standards-reviewer verifies each "Done means" criterion with evidence, up to 3 uplift suggestions. Respects the retry budget. Auto-chains into Act when every criterion passes.
+description: Verify the current work against the plan — project checks (failures only), standards-reviewer verifies each "Done means" criterion with evidence, live end-to-end run of the real feature, up to 3 uplift suggestions. Respects the retry budget, then stops for your own test — you trigger Act.
 disable-model-invocation: true
 ---
 

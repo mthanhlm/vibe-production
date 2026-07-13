@@ -13,10 +13,9 @@ project — say so to the user before you do it.
 
 1. **Initialize state.** Create:
    - `.vibe/config.json` →
-     `{"gate": "on", "plan_language": "vi", "auto_chain": "on"}`
+     `{"gate": "on", "plan_language": "vi"}`
      (ask the user for their preferred plan translation language; `vi`
-     unless they say otherwise; `"none"` disables translation.
-     `"auto_chain": "off"` keeps the Check→Act and Do→Check hops manual)
+     unless they say otherwise; `"none"` disables translation)
    - `.vibe/STATE.md` → `status: idle`, `next_action: /vibe:plan`
    - Everything in `.vibe/` (including the translated `plan.<lang>.md`) is
      meant to be committed and team-shared — no .gitignore entries needed.
@@ -24,9 +23,11 @@ project — say so to the user before you do it.
    and frameworks, how errors are handled today, how endpoints are shaped,
    test setup and coverage reality, config/secrets handling, migration
    story. File lists and short characterizations, not file dumps.
-3. **Gap analysis.** Read the five `production-standards` reference files
-   and diff them against the discovered patterns. For each gap: rule ID,
-   one-line evidence (file:line), risk (high/med/low).
+3. **Gap analysis.** Read the `production-standards` reference files whose
+   domains the project touches (the core engineering five always; the four
+   AI-product ones when the codebase calls an LLM) and diff them against
+   the discovered patterns. For each gap: rule ID, one-line evidence
+   (file:line), risk (high/med/low).
 4. **Write `.vibe/ROADMAP.md`.** Prioritized by risk × touch-frequency,
    framed as **Strangler-Fig uplift**: fix-as-you-touch, one improvement per
    feature, explicitly NOT a big-bang refactor. Format:
@@ -52,6 +53,4 @@ project — say so to the user before you do it.
    (A plugin cannot set this itself; the settings write is their consent.)
    Skip silently if they decline.
 8. **Report.** Summarize in chat: top-3 roadmap risks, the verify commands,
-   and the loop: `/vibe:plan → code → /vibe:check → you test → /vibe:act`
-   (Check stops for the user's own test; act is theirs to trigger;
-   `"auto_chain": "off"` disables the Do→Check hop).
+   and the loop: `/vibe:plan → code → /vibe:check → you test → /vibe:act`.

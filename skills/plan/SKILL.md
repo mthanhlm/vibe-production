@@ -27,7 +27,10 @@ Arguments: $ARGUMENTS
    running /vibe:setup later for the roadmap and verify script.
 2. **Interview.** Use AskUserQuestion for what's genuinely open: the goal,
    who uses it, constraints, what's explicitly out of scope. 2–4 questions,
-   not a questionnaire.
+   not a questionnaire. Always capture the reference point — "what existing
+   thing should this feel like?" — and what "done and good" means in the
+   user's own words; write both into the Objective (deliveries disappoint
+   on mis-read expectations more often than on missed requirements).
 3. **Explore.** Use Explore subagent(s) to find the files/patterns involved.
    Instruct them to return **file lists and one-line roles, not file
    contents**. If the work touches APIs/errors/tests/security/system design,
@@ -101,8 +104,7 @@ One feature per plan; finish to a commit before planning the next.
 
 When the implementation is complete and every Done-means criterion looks
 met, invoke the Skill tool with skill `vibe:check` yourself — don't wait
-to be asked. Only when `auto_chain` is `"off"` in `.vibe/config.json` do
-you end the turn instead and let the user run /vibe:check. Any other
-value (including legacy `"on"`/`"full"`) behaves the same as absent:
-Do→Check is the only automatic hop — check then stops for the user's own
-test, and no mode auto-runs act.
+to be asked. One exception: if `.vibe/config.json` contains
+`"auto_chain": "off"`, end the turn and let the user run /vibe:check —
+disabling this single Do→Check hop is that key's only meaning; any other
+value is the default.

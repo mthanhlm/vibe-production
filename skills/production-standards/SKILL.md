@@ -1,6 +1,6 @@
 ---
 name: production-standards
-description: Production-grade engineering standards with citable rule IDs, for use when designing or building APIs and endpoints, handling errors and exceptions, writing or planning tests, reviewing security (auth, input validation, secrets), or architecting services and system design. Also applies when working inside a low-quality codebase — flag deviations instead of copying bad patterns. Consult the matching reference file before writing such code.
+description: Production-grade engineering standards with citable rule IDs, for use when designing or building APIs and endpoints, handling errors and exceptions, writing or planning tests, reviewing security (auth, input validation, secrets), architecting services and system design, or building LLM/agent features (system prompts, agent memory, tool definitions, evals). Also applies when working inside a low-quality codebase — flag deviations instead of copying bad patterns. Consult the matching reference file before writing such code.
 ---
 
 # Production standards
@@ -22,6 +22,10 @@ Your job: deliver it by default, and say so when the codebase doesn't.
 | tests: what/how many/what kind, coverage decisions | `references/testing.md` |
 | auth, user input, secrets, crypto, uploads | `references/security.md` |
 | service structure, config, retries, migrations, scaling | `references/system-design.md` |
+| system prompts, agent instructions, context budgets, caching | `references/prompt-design.md` |
+| agent memory: what to persist, compaction, staleness, privacy | `references/memory.md` |
+| tools for LLM agents: schemas, descriptions, errors, budgets | `references/tool-design.md` |
+| LLM evals: golden sets, LLM judges, regression gates, live checks | `references/evals.md` |
 
 ## Non-negotiables (the short list)
 

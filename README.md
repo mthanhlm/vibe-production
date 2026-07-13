@@ -13,10 +13,12 @@ Fixes the three ways AI coding sessions go wrong:
    one touch at a time — never a big-bang rewrite.
 3. **Token burn and retry thrash** → plan-before-code is enforced by a
    zero-token hook, tests reach the model as failure lines only, every plan
-   carries a retry budget that stops thrashing loops, and the plugin itself
-   costs **well under 500 always-on tokens** (a handful of one-line skill
-   descriptions + your working agreements). No MCP server — nothing here
-   ever invalidates the prompt cache.
+   carries a retry budget that stops thrashing loops, and the plugin's
+   always-on cost is **about 550 tokens** (six skill descriptions plus
+   two agent listings — measured; hooks, commands, and reference files cost
+   0 until used). Your working-agreements file adds only what you promote,
+   capped under 60 lines. No MCP server — nothing here ever invalidates the
+   prompt cache.
 
 ## The loop (PDCA + upfront expectations)
 
@@ -51,10 +53,7 @@ Fixes the three ways AI coding sessions go wrong:
 The loop keeps a human in it: Check tests everything a machine can test —
 deterministic checks, standards review, then actually driving the feature
 end-to-end — and then stops so the final confirmation is yours. Act never
-runs on the model's initiative. The only automatic hop is Do→Check;
-disable even that with `"auto_chain": "off"` in `.vibe/config.json` (any
-other value, including legacy `"on"`/`"full"`, behaves like the default —
-no value auto-runs Act).
+runs on the model's initiative; the only automatic hop is Do→Check.
 
 `/vibe:plan quick` stamps a one-line plan for one-sentence diffs — no ceremony.
 `/vibe:setup` onboards a repo: discovers house patterns, writes the gap
@@ -114,13 +113,12 @@ version up after `/reload-plugins`.
 
 | Component | Type | Idle token cost |
 |---|---|---|
-| `production-standards` + 5 reference files | skill (model-invocable) | ~1 description line |
-| `/vibe:plan` `/vibe:check` `/vibe:act` `/vibe:setup` `/vibe:release` `/vibe:deck` `/vibe:drawio` | thin commands — each natively invokes its skill via the Skill tool | 0 |
-| the 7 workflow skills behind those commands (hidden from the picker) | skills (model-invocable) | ~1 short description line each |
+| `production-standards` + 9 reference files (core engineering + AI-product: prompts, memory, tools, evals) | skill (model-invocable) | ~1 description line |
+| `/vibe:plan` `/vibe:check` `/vibe:act` `/vibe:setup` `/vibe:release` | thin commands — each natively invokes its skill via the Skill tool | 0 |
+| the 5 workflow skills behind those commands (hidden from the picker) | skills (model-invocable) | ~1 short description line each |
 | plan gate, git safeguard, deviation nudge, plan stamp, chat-history archive | hooks (PreToolUse / PostToolUse / SessionStart / SessionEnd) | 0 |
 | `standards-reviewer` (sonnet), `uplift-scout` (haiku) | agents, read-only | 0 until invoked |
-| `vibe-verify`, `vibe-e2e-setup`, `vibe-pptx-setup` | bin CLIs | 0 |
-| `/vibe:deck` + `/vibe:drawio` design system, layouts, build recipes | on-demand skill references (loaded only when building a deck or diagram) | 0 until invoked |
+| `vibe-verify`, `vibe-e2e-setup` | bin CLIs | 0 |
 
 State lives in **your repo, committed**: `.vibe/plan.md` (the gate token),
 `.vibe/STATE.md` (any fresh session knows the next command), `.vibe/ROADMAP.md`
