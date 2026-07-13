@@ -49,7 +49,7 @@ Run it with the toolkit python:
 "$PPTX/bin/python" "$RUN/build.py"
 ```
 
-## 4. Validate (DR-1..9, hard gate)
+## 4. Validate (DR-1..9, DR-11 — hard gate)
 
 ```bash
 "$PPTX/bin/python" <plugin>/scripts/validate_deck.py "$OUT/deck.pptx"

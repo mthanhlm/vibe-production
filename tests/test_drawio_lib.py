@@ -63,7 +63,7 @@ class TestDrawioLib(unittest.TestCase):
                             for i, k in enumerate(["auth", "gateway", "orders"])},
                   "edges": [["gateway", "auth"], ["gateway", "orders"]]}
         d = dl.from_layout(layout, {})
-        primary = [(s, t) for (s, t, _l, p) in d._edges if p]
+        primary = [(s, t) for (s, t, _l, p, _loop) in d._edges if p]
         self.assertEqual(len(primary), 2)
         self.assertTrue(all(s == "gateway" for s, _ in primary))
 
@@ -112,6 +112,53 @@ class TestDrawioLib(unittest.TestCase):
                               capture_output=True, text=True, timeout=30)
         self.assertEqual(proc.returncode, 0, proc.stdout + proc.stderr)
         self.assertIn("DIAGRAM PASS", proc.stdout)
+
+    def test_typed_node_shapes_and_semantic_palette(self):
+        d = dl.Diagram()
+        d.node("s", "", 0, 0, 40, 40, kind="start")
+        d.node("a", "Do it", 80, 0, kind="action")
+        d.node("g", "Met?", 280, 0, 136, 72, kind="decision")
+        d.node("db", "Store", 480, 0, kind="data")
+        d.node("ok", "Done", 680, 0, 120, 56, kind="success")
+        xml = d.to_drawio()
+        self.assertIn("rhombus", xml)
+        self.assertIn("cylinder", xml)
+        self.assertIn("ellipse", xml)
+        self.assertIn(dl.SEM["action"][0], xml)   # blue fill
+        self.assertIn(dl.SEM["success"][1], xml)  # green stroke
+        svg = d.to_svg()
+        self.assertIn("<polygon", svg)            # rhombus preview
+        self.assertIn("<ellipse", svg)
+
+    def test_unknown_kind_raises(self):
+        with self.assertRaises(ValueError):
+            dl.Diagram().node("x", "X", 0, 0, kind="bogus")
+
+    def test_note_sublabel_in_both_serializers(self):
+        d = dl.Diagram()
+        d.node("a", "Api", 0, 0, kind="action", note="FastAPI")
+        self.assertIn("FastAPI", d.to_drawio())
+        self.assertIn("FastAPI", d.to_svg())
+
+    def test_loop_edge_is_dashed_accent(self):
+        d = dl.Diagram()
+        d.node("a", "A", 0, 0)
+        d.node("b", "B", 300, 0)
+        d.edge("b", "a", "retry", loop=True)
+        root = ET.fromstring(d.to_drawio())
+        estyle = next(c.get("style") for c in root.iter("mxCell")
+                      if c.get("edge") == "1")
+        self.assertIn("dashed=1", estyle)
+        self.assertIn(dl.TOKENS["accent"], estyle)
+
+    def test_legend_cells_emitted(self):
+        d = dl.Diagram()
+        d.node("a", "A", 0, 0)
+        d.legend([("action", "work step"), ("decision", "check")], 0, 200)
+        xml = d.to_drawio()
+        self.assertIn("legend-sw0", xml)
+        self.assertIn("legend-tx1", xml)
+        self.assertIn("check", d.to_svg())
 
 
 if __name__ == "__main__":

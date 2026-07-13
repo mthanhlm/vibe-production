@@ -14,14 +14,18 @@ the rendered diagram** before delivery (WA-16). No heavy install — the
 preview renders with LibreOffice.
 
 Heavy guidance is in bundled `references/`, loaded on demand (WA-13). The
-design rules (DL-1..7) reuse the deck research DR-8/DR-5 and the drawio
-research DG-17..21 — no new research.
+design rules (DL-1..8) reuse the deck research DR-8/DR-5 and the drawio
+research DG-17..21, plus the semantic-node uplift (typed nodes, loop
+back-edges, legend, label-fit) recorded in the 2026-07-13 amendment.
 
 ## Stages
 
 1. **Topology.** Read `references/build-recipe.md` §1 and
    `references/design-system.md`. Name nodes/edges; one idea per diagram
-   (DL-1); labels ≤3 words (DL-2); pick a shape from `references/layouts.md`.
+   (DL-1); labels ≤3 words (DL-2); give each node a semantic **kind**
+   (action / decision / success / error / data / external / start / end) and
+   pick a layout from `references/layouts.md`. Loops use a dashed back-edge;
+   a multi-type diagram gets a `legend()`.
 2. **Layout.** Non-trivial graph → write a `.dot` and run
    `scripts/drawio_layout.py` (graphviz). `dot` absent (exit 1) → hand grid
    on the 8px grid. Simple arrangements use the hand grid directly.

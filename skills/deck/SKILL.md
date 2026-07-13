@@ -12,7 +12,7 @@ and executives alike. The whole point of this rebuild is the last stage:
 validates is not done until it also looks right.
 
 All heavy guidance is in bundled `references/` files, loaded on demand
-(always-on cost stays flat). The design rules (DR-1..10) come from
+(always-on cost stays flat). The design rules (DR-1..11) come from
 `.vibe/research/2026-07-13-deck-taste-anti-slop.md`.
 
 ## Stages
@@ -27,8 +27,9 @@ All heavy guidance is in bundled `references/` files, loaded on demand
    `references/layouts.md`; prefer a number or diagram over a text slide.
 3. **Build.** Compose `scripts/deck_lib.py` layout calls in a per-deck build
    script run with the toolkit venv python — never author raw python-pptx
-   (that is how the old unit grew to 5,200 lines of slop). Include ≥1
-   native-shape diagram slide where the content warrants (`flow()`).
+   (that is how the old unit grew to 5,200 lines of slop). Favour semantic
+   native-shape diagrams (`flow()`, `two_loops()`, `gate_loop()`, `gantt()`,
+   `matrix()`, …) over text slides; most content has a shape.
 4. **Validate.** `scripts/validate_deck.py` is the hard gate (DK-* → DR-*).
    Fix and rebuild until `DECK PASS`.
 5. **Render + review (required — DR-10).** Render every slide to PNG
