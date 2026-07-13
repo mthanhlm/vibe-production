@@ -16,4 +16,7 @@ jobs:
       - run: python -m py_compile scripts/*.py
       - run: bash -n bin/vibe-verify
       - run: bash -n bin/vibe-e2e-setup
+      - run: bash -n bin/vibe-pptx-setup
+      # python-pptx so the deck validator tests run here instead of skipping
+      - run: pip install 'python-pptx<2'
       - run: python -m unittest discover -s tests -v

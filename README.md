@@ -115,11 +115,12 @@ version up after `/reload-plugins`.
 | Component | Type | Idle token cost |
 |---|---|---|
 | `production-standards` + 5 reference files | skill (model-invocable) | ~1 description line |
-| `/vibe:plan` `/vibe:check` `/vibe:act` `/vibe:setup` `/vibe:release` | thin commands — each natively invokes its skill via the Skill tool | 0 |
-| the 5 workflow skills behind those commands (hidden from the picker) | skills (model-invocable) | ~1 short description line each |
+| `/vibe:plan` `/vibe:check` `/vibe:act` `/vibe:setup` `/vibe:release` `/vibe:deck` | thin commands — each natively invokes its skill via the Skill tool | 0 |
+| the 6 workflow skills behind those commands (hidden from the picker) | skills (model-invocable) | ~1 short description line each |
 | plan gate, git safeguard, deviation nudge, plan stamp, chat-history archive | hooks (PreToolUse / PostToolUse / SessionStart / SessionEnd) | 0 |
 | `standards-reviewer` (sonnet), `uplift-scout` (haiku) | agents, read-only | 0 until invoked |
-| `vibe-verify`, `vibe-e2e-setup` | bin CLIs | 0 |
+| `vibe-verify`, `vibe-e2e-setup`, `vibe-pptx-setup` | bin CLIs | 0 |
+| `/vibe:deck` design system, layouts, build recipe | on-demand skill references (loaded only when building a deck) | 0 until invoked |
 
 State lives in **your repo, committed**: `.vibe/plan.md` (the gate token),
 `.vibe/STATE.md` (any fresh session knows the next command), `.vibe/ROADMAP.md`
