@@ -1,0 +1,9 @@
+graph 1 6.8333 1.9167
+node ingest 0.97222 0.95833 1.9444 0.83333 ingest solid box black lightgrey
+node validate 3.4167 0.95833 1.9444 0.83333 validate solid box black lightgrey
+node store 5.8611 1.5 1.9444 0.83333 store solid box black lightgrey
+node alert 5.8611 0.41667 1.9444 0.83333 alert solid box black lightgrey
+edge ingest validate 4 1.9447 0.95833 2.0622 0.95833 2.1829 0.95833 2.3022 0.95833 solid black
+edge validate store 4 4.3892 1.1732 4.5066 1.1995 4.6273 1.2266 4.7467 1.2533 solid black
+edge validate alert 4 4.3892 0.74347 4.5066 0.71715 4.6273 0.69009 4.7467 0.66334 solid black
+stop
